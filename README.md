@@ -113,16 +113,16 @@ pnpm preview
 | 类型检查   | vue-tsc（Vue SFC）                        | 3.3.14              |
 | 路由       | Vue Router（history 模式、路由懒加载）    | 5.5.1               |
 | 状态       | Pinia（Setup Store）                      | 4.1.0               |
-| 样式       | Tailwind CSS + `@tailwindcss/vite`        | 4.3.3               |
-| 国际化     | vue-i18n（Composition API）               | 11.4.16             |
+| 样式       | Tailwind CSS + `@tailwindcss/vite`        | 4.3.5               |
+| 国际化     | vue-i18n（Composition API）               | 11.4.20             |
 | HTTP       | Axios（实例 + 请求/响应拦截器）           | 1.21.1              |
 | 数据校验   | Zod                                       | 4.6.7               |
 | 组合式工具 | VueUse                                    | 15.0.0              |
 | 图标       | Lucide Vue                                | 1.73.0              |
 | PWA        | vite-plugin-pwa（Workbox 预缓存）         | 2.0.0               |
 | 单元测试   | Vitest + Vue Test Utils + jsdom           | 5.1.0 / 31.0.1      |
-| 端到端测试 | Playwright                                | 1.64.1              |
-| 代码质量   | ESLint + Oxlint + Prettier                | 10.14 / 1.93 / 3.10 |
+| 端到端测试 | Playwright                                | 1.65.1              |
+| 代码质量   | ESLint + Oxlint + Prettier                | 10.15 / 1.93 / 3.10 |
 | 运行时     | Node.js + pnpm                            | 24 LTS / 11.28.5    |
 
 ### TypeScript 7 的官方并存方案

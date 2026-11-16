@@ -27,6 +27,18 @@
 
 ## 2026-11-16
 
+### [Framework] 依赖补齐到当前最新补丁/次要版本
+
+- 日期：2026-11-16
+- 变更：`pnpm up` 在现有 semver 范围内补齐 8 项更新：
+  - 运行时依赖：vue-i18n 11.4.16 → 11.4.20。
+  - 开发依赖：@playwright/test 1.64.1 → 1.65.1、@vue/test-utils 2.5.1 → 2.6.0、eslint 10.14.0 → 10.15.0、@tailwindcss/vite 4.3.3 → 4.3.5、tailwindcss 4.3.3 → 4.3.5、vue-eslint-parser 10.4.1 → 10.4.2、@tsconfig/node24 24.0.5 → 24.0.6。
+  - 同时把 `@lucide/vue`、`axios`、`vue-router`、`jsdom`、`@types/node` 的 semver 声明对齐到已安装版本（无实际版本变化）。
+  - 未跟进两项：`@types/node` 26.6.6（与 Node 22/24 运行时基线不符，继续停在 24.x）、`oxlint` 1.94.0（`eslint-plugin-oxlint@1.93.0` 的 peer 要求 `oxlint ~1.93.0`）。
+- 影响：命令与目录结构不变；Playwright 升到 1.65.1 后浏览器二进制版本同步变化，本地跑 E2E 前需 `pnpm exec playwright install chromium`（CI 已包含该步骤）。
+- 文档：README 技术栈版本表、本条记录。
+- 验证：`pnpm docs:check`、`pnpm format:check`、`pnpm lint`、`pnpm type-check`、`pnpm test:unit:run`（77 passed）、`pnpm build`、`pnpm test:e2e`（18 passed）。
+
 ### [Framework] 合并 Dependabot 依赖与 CI actions 升级
 
 - 日期：2026-11-16
