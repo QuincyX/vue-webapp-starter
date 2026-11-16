@@ -75,13 +75,13 @@ check_node() {
   minor="${rest%%.*}"
 
   if (( major == 22 )); then
-    (( minor >= 18 )) || die "Node.js ^22.18.0 or >=24.12.0 required (found ${version}); see .nvmrc."
-  elif (( major >= 24 )); then
-    if (( major == 24 && minor < 12 )); then
-      die "Node.js ^22.18.0 or >=24.12.0 required (found ${version}); see .nvmrc."
-    fi
+    (( minor >= 22 )) || die "Node.js ^22.22.2 or ^24.15.0 or >=26.0.0 required (found ${version}); see .nvmrc."
+  elif (( major == 24 )); then
+    (( minor >= 15 )) || die "Node.js ^22.22.2 or ^24.15.0 or >=26.0.0 required (found ${version}); see .nvmrc."
+  elif (( major >= 26 )); then
+    :
   else
-    die "Node.js ^22.18.0 or >=24.12.0 required (found ${version}); see .nvmrc."
+    die "Node.js ^22.22.2 or ^24.15.0 or >=26.0.0 required (found ${version}); see .nvmrc."
   fi
 }
 

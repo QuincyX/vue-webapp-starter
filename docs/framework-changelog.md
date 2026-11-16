@@ -27,6 +27,19 @@
 
 ## 2026-11-16
 
+### [Framework] 合并 Dependabot 依赖与 CI actions 升级
+
+- 日期：2026-11-16
+- 变更：
+  - 合并 Dependabot 的 9 个升级 PR（#18、#17、#15、#14、#7、#1–#4），关闭 #10（`@types/node` 26 major 与 Node 22/24 运行时基线不符）。主要版本：Vue 3.5.45、Vue Router 5.5.1、Vite 8.3.8、Vitest 5.1.0、vue-tsc 3.3.14、ESLint 10.14.0、eslint-plugin-vue 10.12.1、oxlint 1.93.0、Prettier 3.10.1、axios 1.21.1、`@lucide/vue` 1.73.0、jsdom 31.0.1。
+  - jsdom 31 在 hoisted `node_modules` 下同时解析出 parse5 8.0.1 与 8.1.x，Vitest forks worker 启动即失败（`this.parser.tokenizer.flushCharacters is not a function`，10 个测试文件全部无法加载）。`pnpm dedupe` 收敛为单一 parse5 8.1.1 后恢复。
+  - jsdom 31 的 engines 要求 Node `^22.22.2 || ^24.15.0 || >=26.0.0`，据此同步收紧 `package.json` engines、`.nvmrc`（24.12.0 → 24.15.0）与 `deploy/build.sh` 的 `check_node`；Node 22.18–22.22.1、24.12–24.14 与 25 进入不受支持区间。
+  - CI 的 `actions/checkout`、`actions/setup-node`、`actions/upload-artifact` 升到 v7，`pnpm/action-setup` 升到 v6，消除 Node 20 弃用告警。
+  - README 版本表中 TypeScript 6 兼容层的 6.0.3 修正为实际锁定的 6.0.2，其余版本号与 `pnpm list` 对齐。
+- 影响：所有命令与目录结构不变；`pnpm install` 会在 Node 版本越界时给出 engines 提示，`deploy/build.sh` 直接退出。`@types/node` 继续停在 24.x，待运行时基线升级后再跟进 major。
+- 文档：README（环境要求、技术栈版本表）、docs/engineering.md（§1 环境要求）、本条记录。
+- 验证：`pnpm install --frozen-lockfile`、`pnpm docs:check`（25 文件）、`pnpm format:check`、`pnpm lint`、`pnpm type-check`、`pnpm test:unit:run`（77 passed）、`pnpm build`、`pnpm test:e2e`（18 passed）、`bash deploy/build.sh --skip-install` 均通过。
+
 ### [Framework] 项目标识重命名为 vue-webapp-starter
 
 - 日期：2026-11-16
