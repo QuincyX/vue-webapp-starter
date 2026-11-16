@@ -30,7 +30,7 @@
 
 ## 快速开始
 
-要求 **Node.js `^22.18.0 || >=24.12.0`**（推荐 Node 24 LTS）与 **pnpm 11+**。
+要求 **Node.js `^22.22.2 || ^24.15.0 || >=26.0.0`**（推荐 Node 24 LTS）与 **pnpm 11+**。
 
 ```bash
 corepack enable
@@ -105,25 +105,25 @@ pnpm preview
 
 ## 技术栈
 
-| 类别       | 选型                                      | 版本               |
-| ---------- | ----------------------------------------- | ------------------ |
-| 框架       | Vue（Composition API + `<script setup>`） | 3.5.44             |
-| 构建       | Vite（Rolldown）                          | 8.3.5              |
-| 编译器     | TypeScript 7 + TS 6 兼容层                | 7.0.2 / 6.0.3      |
-| 类型检查   | vue-tsc（Vue SFC）                        | 3.3.13             |
-| 路由       | Vue Router（history 模式、路由懒加载）    | 5.4.0              |
-| 状态       | Pinia（Setup Store）                      | 4.1.0              |
-| 样式       | Tailwind CSS + `@tailwindcss/vite`        | 4.3.3              |
-| 国际化     | vue-i18n（Composition API）               | 11.4.16            |
-| HTTP       | Axios（实例 + 请求/响应拦截器）           | 1.20.0             |
-| 数据校验   | Zod                                       | 4.6.7              |
-| 组合式工具 | VueUse                                    | 15.0.0             |
-| 图标       | Lucide Vue                                | 1.61.0             |
-| PWA        | vite-plugin-pwa（Workbox 预缓存）         | 2.0.0              |
-| 单元测试   | Vitest + Vue Test Utils + jsdom           | 5.0.5              |
-| 端到端测试 | Playwright                                | 1.64.1             |
-| 代码质量   | ESLint + Oxlint + Prettier                | 10.13 / 1.89 / 3.9 |
-| 运行时     | Node.js + pnpm                            | 24 LTS / 11.28.5   |
+| 类别       | 选型                                      | 版本                |
+| ---------- | ----------------------------------------- | ------------------- |
+| 框架       | Vue（Composition API + `<script setup>`） | 3.5.45              |
+| 构建       | Vite（Rolldown）                          | 8.3.8               |
+| 编译器     | TypeScript 7 + TS 6 兼容层                | 7.0.2 / 6.0.2       |
+| 类型检查   | vue-tsc（Vue SFC）                        | 3.3.14              |
+| 路由       | Vue Router（history 模式、路由懒加载）    | 5.5.1               |
+| 状态       | Pinia（Setup Store）                      | 4.1.0               |
+| 样式       | Tailwind CSS + `@tailwindcss/vite`        | 4.3.3               |
+| 国际化     | vue-i18n（Composition API）               | 11.4.16             |
+| HTTP       | Axios（实例 + 请求/响应拦截器）           | 1.21.1              |
+| 数据校验   | Zod                                       | 4.6.7               |
+| 组合式工具 | VueUse                                    | 15.0.0              |
+| 图标       | Lucide Vue                                | 1.73.0              |
+| PWA        | vite-plugin-pwa（Workbox 预缓存）         | 2.0.0               |
+| 单元测试   | Vitest + Vue Test Utils + jsdom           | 5.1.0 / 31.0.1      |
+| 端到端测试 | Playwright                                | 1.64.1              |
+| 代码质量   | ESLint + Oxlint + Prettier                | 10.14 / 1.93 / 3.10 |
+| 运行时     | Node.js + pnpm                            | 24 LTS / 11.28.5    |
 
 ### TypeScript 7 的官方并存方案
 

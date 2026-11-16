@@ -6,7 +6,7 @@
   "description": "A production-minded Vue 3 + Vite + TypeScript starter with Pinia, Vue Router, Tailwind CSS, Axios, vue-i18n, Zod, Vitest and Playwright.",
   "packageManager": "pnpm@11.28.5",
   "engines": {
-    "node": "^22.18.0 || >=24.12.0",
+    "node": "^22.22.2 || ^24.15.0 || >=26.0.0",
     "pnpm": ">=11"
   },
   "scripts": {
