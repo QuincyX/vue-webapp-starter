@@ -11,6 +11,8 @@ const { isDark, toggle } = useTheme()
 <template>
   <button
     type="button"
+    data-slot="theme-toggle"
+    :data-state="isDark ? 'dark' : 'light'"
     class="icon-btn"
     :aria-label="isDark ? t('theme.toLight') : t('theme.toDark')"
     :title="isDark ? t('theme.toLight') : t('theme.toDark')"

@@ -36,6 +36,8 @@ import { useToast } from '@/composables/useToast'
 import { env } from '@/config/env'
 import { useAuthStore } from '@/stores/auth'
 import { useHealthStore } from '@/stores/health'
+import { useLoadingStore } from '@/stores/loading'
+import { useLoginDialogStore } from '@/stores/login-dialog'
 import { useTaskStore } from '@/stores/tasks'
 import { passwordInputSchema, profileInputSchema } from '@/types/auth'
 import { formatDateTime, toDateInputValue } from '@/utils/date'
@@ -47,6 +49,8 @@ const router = useRouter()
 const auth = useAuthStore()
 const health = useHealthStore()
 const taskStore = useTaskStore()
+const loading = useLoadingStore()
+const loginDialog = useLoginDialogStore()
 const { toast } = useToast()
 const { mode, setMode } = useTheme()
 
@@ -183,6 +187,13 @@ async function saveProfile(): Promise<void> {
     profileForm.name = result.data.name
     toast({ title: t('settings.account.profileSaved'), variant: 'success' })
   } catch (error) {
+    if (isApiError(error) && error.status === 401) {
+      // The page stays mounted, so the typed name survives; after signing in the
+      // dialog resumes this exact save instead of asking the user to retype.
+      loginDialog.open({ reason: 'expired', onSuccess: () => void saveProfile() })
+      return
+    }
+
     profileError.value = resolveAccountError(error, t('settings.account.profileError'))
   } finally {
     profileSaving.value = false
@@ -215,7 +226,7 @@ async function savePassword(): Promise<void> {
 
   passwordSaving.value = true
   try {
-    await auth.changePassword(result.data)
+    await loading.run(() => auth.changePassword(result.data), 'globalLoading.savingPassword')
     toast({ title: t('settings.account.passwordSaved'), variant: 'success' })
     await router.replace({ name: 'login' })
   } catch (error) {
@@ -226,8 +237,10 @@ async function savePassword(): Promise<void> {
 }
 
 async function handleLogout(): Promise<void> {
-  await auth.logout()
-  await router.replace({ name: 'login' })
+  await loading.run(async () => {
+    await auth.logout()
+    await router.replace({ name: 'login' })
+  }, 'globalLoading.signingOut')
 }
 
 function exportTasks(): void {
@@ -537,6 +550,7 @@ async function checkBackendConnection(): Promise<void> {
                 type="file"
                 accept="application/json,.json"
                 class="hidden"
+                :aria-label="t('settings.data.import')"
                 @change="importTasks"
               />
             </div>

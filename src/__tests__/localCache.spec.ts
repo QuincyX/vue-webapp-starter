@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { DEFAULT_CACHE_TTL, localCache } from '@/utils/localCache'
+import { DEFAULT_CACHE_TTL, localCache, sameItems } from '@/utils/localCache'
 
 const FOREIGN_KEY = 'some-other-app.key'
 
@@ -92,5 +92,50 @@ describe('localCache', () => {
 
     vi.advanceTimersByTime(5_001)
     expect(localCache.get(1)).toBeNull()
+  })
+
+  it('peekValidated rejects entries whose shape no longer matches', () => {
+    interface Template {
+      id: number
+      cover: string
+    }
+    const isTemplate = (value: unknown): value is Template =>
+      Boolean(
+        value &&
+        typeof value === 'object' &&
+        'id' in value &&
+        typeof (value as Template).id === 'number' &&
+        typeof (value as Template).cover === 'string',
+      )
+
+    localCache.set('template.old', { biztId: 1, coverUrl: '/a.png' })
+    localCache.set('template.new', { id: 2, cover: '/b.png' })
+
+    expect(localCache.peekValidated('template.old', isTemplate)).toBeNull()
+
+    const entry = localCache.peekValidated('template.new', isTemplate)
+    expect(entry?.data).toEqual({ id: 2, cover: '/b.png' })
+  })
+
+  it('sameItems keeps the reference only for identical content', () => {
+    const current = [
+      { id: 1, title: 'Write' },
+      { id: 2, title: 'Ship' },
+    ]
+
+    expect(sameItems(current, current)).toBe(true)
+    expect(
+      sameItems(current, [
+        { id: 1, title: 'Write' },
+        { id: 2, title: 'Ship' },
+      ]),
+    ).toBe(true)
+    expect(sameItems(current, [{ id: 1, title: 'Write' }])).toBe(false)
+    expect(
+      sameItems(current, [
+        { id: 1, title: 'Write' },
+        { id: 2, title: 'Shipped' },
+      ]),
+    ).toBe(false)
   })
 })

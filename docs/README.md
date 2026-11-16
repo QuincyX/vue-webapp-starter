@@ -7,24 +7,29 @@
 | [AGENTS.md](../AGENTS.md)                | 代理/自动化协作硬性规则、变更分类、完成定义    | AI Agent、维护者    |
 | [功能规格](../specs/README.md)           | 非平凡功能的 spec/plan/tasks/verification 流程 | 产品、开发者、Agent |
 | [架构说明](./architecture.md)            | 分层、模块边界、数据流、扩展位置、已知约束     | 前端开发者          |
+| [共享组件行为](./components/README.md)   | 共享交互组件的部件结构、键盘、ARIA 与状态属性  | 前端开发者、Agent   |
 | [工程说明与约束](./engineering.md)       | 环境、脚本、质量门禁、依赖策略、测试与发布约束 | 开发者、Reviewer    |
 | [框架变更记录](./framework-changelog.md) | 非业务层框架变更的追加式记录                   | 全体维护者          |
+| [后端待办](./todo/backend.md)            | 前端已落地、等待后端修正或确认的接口事项       | 前端、后端          |
 | [README](../README.md)                   | 项目介绍、快速开始、功能与部署                 | 新成员、使用者      |
 
 ## 事实归属
 
 为减少重复和文档漂移，每一类事实只有一个权威来源：
 
-| 事实类型                           | 唯一来源                                           | 其他文档的责任                                            |
-| ---------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
-| 命令、参数、CI、环境变量、发布流程 | [engineering.md](./engineering.md)                 | 只链接或给最小入口                                        |
-| 分层、目录职责、数据流、架构边界   | [architecture.md](./architecture.md)               | 只链接或摘要                                              |
-| Agent 行为规则、准入、完成定义     | [AGENTS.md](../AGENTS.md)                          | 只链接，不复制完整规则                                    |
-| 用户使用方式、功能、部署入口       | [README.md](../README.md)                          | 保持面向用户的最新说明                                    |
-| 功能规格、技术计划、任务与验收     | `specs/NNN-slug/`                                  | 用 [specs/README.md](../specs/README.md) 路由；完成后冻结 |
-| 框架变更历史                       | [framework-changelog.md](./framework-changelog.md) | 追加记录，不重写历史                                      |
-| 文档索引与治理规则                 | 本文件                                             | 维护路由和归属                                            |
-| 代码契约、Schema、类型             | `src/types/`、`src/api/` 与源码                    | 文档解释设计，不复制实现                                  |
+| 事实类型                            | 唯一来源                                           | 其他文档的责任                                            |
+| ----------------------------------- | -------------------------------------------------- | --------------------------------------------------------- |
+| 命令、参数、CI、环境变量、发布流程  | [engineering.md](./engineering.md)                 | 只链接或给最小入口                                        |
+| 分层、目录职责、数据流、架构边界    | [architecture.md](./architecture.md)               | 只链接或摘要                                              |
+| 不可协商的架构红线                  | [AGENTS.md §4](../AGENTS.md#4-架构红线)            | 实现细节归 engineering.md，其他文档只链接                 |
+| 共享组件的部件结构、键盘、ARIA 契约 | [components/](./components/README.md)              | 只链接，不复制行为细节                                    |
+| Agent 行为规则、准入、完成定义      | [AGENTS.md](../AGENTS.md)                          | 只链接，不复制完整规则                                    |
+| 用户使用方式、功能、部署入口        | [README.md](../README.md)                          | 保持面向用户的最新说明                                    |
+| 功能规格、技术计划、任务与验收      | `specs/NNN-slug/`                                  | 用 [specs/README.md](../specs/README.md) 路由；完成后冻结 |
+| 框架变更历史                        | [framework-changelog.md](./framework-changelog.md) | 追加记录，不重写历史                                      |
+| 等待后端配合的接口事项              | [todo/backend.md](./todo/backend.md)               | 用稳定编号引用（如 `B1`），不复制契约细节                 |
+| 文档索引与治理规则                  | 本文件                                             | 维护路由和归属                                            |
+| 代码契约、Schema、类型              | `src/types/`、`src/api/` 与源码                    | 文档解释设计，不复制实现                                  |
 
 允许为了可读性保留最小摘要和入口链接，但不要复制完整流程、命令表或规则正文。发现重复内容时，以本表指定的来源为准，并在同一次变更中合并或删除重复部分。
 
@@ -40,3 +45,5 @@
 4. **非平凡功能**：使用 [Spec Kit Lite 流程](../specs/README.md)，完成后将 `verification.md` 置为 `Verified` 并冻结目录；新需求新建编号。
 5. 文档中的相对链接由 `pnpm docs:check` 校验；失效链接会阻断 CI。
 6. 历史记录只追加、不重写；已发生的框架变更不得从记录中删除。
+7. 需要后端配合、前端已按降级方案实现的事项，登记到 [todo/backend.md](./todo/backend.md)，用稳定编号跟踪。
+8. **同一规则只写一处**：红线与准入规则在 `AGENTS.md`，操作方法与故障处理在 `engineering.md`，行为契约在 `components/`。其他位置需要提及时给链接，不复制正文；发现重复就在同一次变更中合并。

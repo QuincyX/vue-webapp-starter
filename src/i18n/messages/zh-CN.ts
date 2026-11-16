@@ -10,6 +10,11 @@ export const zhCN = {
     required: '必填',
     docs: '文档',
   },
+  globalLoading: {
+    default: '处理中…',
+    signingOut: '正在退出…',
+    savingPassword: '正在保存…',
+  },
   nav: {
     section: '工作台',
     mainLabel: '主导航',
@@ -49,6 +54,15 @@ export const zhCN = {
   auth: {
     user: {
       fallback: '用户',
+    },
+    dialog: {
+      requiredTitle: '需要登录',
+      requiredDescription: '登录后即可继续刚才的操作，页面上的内容不会丢失。',
+      expiredTitle: '登录状态已失效',
+      expiredDescription: '重新登录即可继续，当前页面和已填写的内容会保留。',
+      submit: '登录并继续',
+      cancel: '稍后再说',
+      success: '已重新登录',
     },
     brand: {
       eyebrow: 'A quieter way to work',

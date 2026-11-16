@@ -26,6 +26,7 @@ const variantIcons: Record<ToastVariant, Component> = {
     <TransitionGroup
       tag="ol"
       name="toast"
+      data-slot="toast-region"
       class="pointer-events-none fixed inset-x-4 bottom-4 z-[90] flex flex-col items-end gap-2 sm:inset-x-auto sm:right-6 sm:bottom-6"
       aria-live="polite"
       aria-atomic="false"
@@ -33,6 +34,8 @@ const variantIcons: Record<ToastVariant, Component> = {
       <li
         v-for="item in toasts"
         :key="item.id"
+        data-slot="toast"
+        :data-variant="item.variant"
         class="card pointer-events-auto flex w-full max-w-sm items-start gap-3 p-3.5 shadow-lg"
         data-testid="toast"
       >
@@ -50,6 +53,7 @@ const variantIcons: Record<ToastVariant, Component> = {
         </div>
         <button
           type="button"
+          data-slot="toast-close"
           class="icon-btn icon-btn-sm -mt-1 -mr-1"
           :aria-label="t('toast.close')"
           @click="dismiss(item.id)"

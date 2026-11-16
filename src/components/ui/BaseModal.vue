@@ -108,10 +108,12 @@ onBeforeUnmount(() => {
     <Transition name="modal" appear>
       <div
         v-if="open"
+        data-slot="modal"
+        data-state="open"
         class="fixed inset-0 z-[80] flex items-end justify-center sm:items-center sm:p-6"
-        @keydown="handleKeydown"
       >
         <div
+          data-slot="modal-backdrop"
           class="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
           aria-hidden="true"
           @click="emit('close')"
@@ -124,17 +126,28 @@ onBeforeUnmount(() => {
           :aria-labelledby="titleId"
           :aria-describedby="description ? descriptionId : undefined"
           tabindex="-1"
+          data-slot="modal-panel"
+          :data-size="size"
           class="modal-panel relative z-10 flex max-h-[92dvh] w-full flex-col overflow-hidden rounded-t-3xl border border-border bg-card text-card-foreground shadow-2xl sm:max-h-[calc(100dvh-3rem)] sm:rounded-card"
           :class="sizeClasses[size]"
+          @keydown="handleKeydown"
         >
-          <header class="flex items-start gap-4 border-b border-border/70 px-5 py-4 sm:px-6">
+          <header
+            data-slot="modal-header"
+            class="flex items-start gap-4 border-b border-border/70 px-5 py-4 sm:px-6"
+          >
             <div class="min-w-0 flex-1">
-              <h2 :id="titleId" class="text-base font-semibold tracking-tight">
+              <h2
+                :id="titleId"
+                data-slot="modal-title"
+                class="text-base font-semibold tracking-tight"
+              >
                 {{ title }}
               </h2>
               <p
                 v-if="description"
                 :id="descriptionId"
+                data-slot="modal-description"
                 class="mt-1 text-xs leading-relaxed text-muted-foreground"
               >
                 {{ description }}
@@ -142,6 +155,7 @@ onBeforeUnmount(() => {
             </div>
             <button
               type="button"
+              data-slot="modal-close"
               class="icon-btn icon-btn-sm -mt-1 -mr-1"
               :aria-label="t('modal.close')"
               @click="emit('close')"
@@ -150,12 +164,13 @@ onBeforeUnmount(() => {
             </button>
           </header>
 
-          <div class="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
+          <div data-slot="modal-body" class="min-h-0 flex-1 overflow-y-auto px-5 py-5 sm:px-6">
             <slot />
           </div>
 
           <footer
             v-if="$slots.footer"
+            data-slot="modal-footer"
             class="flex items-center justify-end gap-2 border-t border-border/70 bg-muted/30 px-5 py-3.5 sm:px-6"
           >
             <slot name="footer" />

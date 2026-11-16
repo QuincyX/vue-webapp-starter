@@ -18,9 +18,142 @@
 - 日期：YYYY-MM-DD
 - 变更：一句话说明行为/约束变化
 - 影响：受影响的模块、命令或兼容性
+- 替代：被本条取代的旧记录标题（没有则省略；旧记录不删除）
 - 文档：更新了哪些文档
 - 验证：执行的命令与结果
 ```
+
+---
+
+## 2026-11-16
+
+### [Framework] 规则与规范文档去重审计
+
+- 日期：2026-11-16
+- 变更：按 [AGENTS.md §3.2](../AGENTS.md#32-全局规则准入) 的准入标准对全局规则做一次审计，只保留项目事实、风险边界与有证据的失败项。
+  - [AGENTS.md](../AGENTS.md) **240 → 136 行**：删除 §1.1「始终遵守」（泛化行为要求）、§7.2「执行流程」六步（仪式化流程，读写顺序与现状检查由 DSH 覆盖）、§9「命令来源」（纯指针，已并入 §8 结尾）；§4 红线合并同义项（原 7 并入 2，`v-html` 从 §6 升为红线 10），条款由 10 条散列压到 9 条实质约束 + 1 条 lint 强制；§5/§6 只留项目事实（TS7 版本与不可删文件、pnpm 锁文件、`VITE_` 前缀、token 取舍、日志脱敏），其余指向 engineering；§3.2 准入与 §3.3 生命周期由 36 行压到 13 行；矩阵补「共享交互组件」一行。
+  - [docs/engineering.md](./engineering.md) **422 → 339 行**：删除 §12「完成定义」（与 AGENTS §8 重复）、§11 四条 FAQ（E2E 找浏览器、未翻译 key、`docs:check` 失败、纯转发组件，均与 §4 或红线重复）；§5 业务/框架变更两段改为指针（分类与矩阵归 AGENTS §3）；§6.1–§6.7 删掉与红线逐条重复的条目，只保留操作方法；§7 接收 AGENTS 原有的 pnpm/锁文件/`nodeLinker` 规则；§8 与 §10 合并同类项。
+  - [docs/README.md](./README.md)：事实归属新增「不可协商的架构红线 → AGENTS §4」，并新增规则 8「同一规则只写一处」。
+  - [README.md](../README.md)：§变更与文档约束 从复述分类与矩阵改为一句结论 + 链接。
+- 影响：
+  - 规则条款减少约 40%，红线、DoD、门禁命令、真实故障处理一条未丢；安全与数据边界不降级。
+  - 归属收敛：红线与准入口径在 AGENTS，操作方法在 engineering，行为契约在 components，用户说明在 README。
+  - 章节号调整：AGENTS §3.3→§3.2、§3.4→§3.3、§7.3→§7.2，engineering 中的锚点已同步；`#31-强制文档更新矩阵`、`#71-非平凡任务契约`、`#8-完成定义definition-of-done` 保持不变。
+- 文档：AGENTS.md、docs/engineering.md、docs/README.md、README.md、本条记录
+- 验证：`pnpm docs:check`（25 文件、205 相对链接）、`pnpm format:check`、`pnpm lint`、`pnpm type-check`、`pnpm test:unit:run`、`pnpm build`、`pnpm test:e2e`（18 passed）；全仓库检索确认无指向已删章节的锚点。
+
+### [Framework] 共享组件与 Vue 官方规范对齐
+
+- 日期：2026-11-16
+- 变更：
+  - [docs/components/README.md](./components/README.md) 新增"与 Vue 官方规范的关系"：逐条对应官方的 a11y 指南、Style Guide 属性顺序、Testing 指南与 VTU 选择器建议；明确官方没有的部分（dialog 行为契约、部件命名、状态属性）由本目录定义；给出官方 agent 入口 `llms.txt` / `llms-full.txt`，并注明 skills 注册站标为 "Official" 的 vue skill 实际来自 `vercel-labs/json-render`，不是 Vue 官方规范。
+  - [eslint.config.ts](../eslint.config.ts) 把 `vue/attributes-order` 从 `flat/recommended` 的 `warn` 提升为 `error`：属性顺序从"建议"变成 CI 门禁，`data-slot`/`data-state` 的放置位置由此强制。提升前用 `--rule` 全量试跑，当前代码零违规。
+  - [BaseModal.vue](../src/components/ui/BaseModal.vue) 的键盘监听从遮罩容器移到 `modal-panel`（`role="dialog"`）：监听属于对话框自身，遮罩容器只负责布局；Escape 与 Tab 循环行为不变。
+  - [settings/index.vue](../src/views/settings/index.vue) 隐藏的 `input[type="file"]` 补 `:aria-label="t('settings.data.import')"`，让这个由按钮触发的原生控件也有可访问名称（不新增 i18n 键）。
+  - 文档补规则与取舍：[engineering.md](./engineering.md) §6.2 增加"表单控件必须有程序化关联的可访问名称"；[base-modal.md](./components/base-modal.md) 记录键盘监听位置；[locale-switcher.md](./components/locale-switcher.md) 记录包裹式 `label` 的取舍。
+- 影响：
+  - 无用户可见行为与文案变化；所有 `getByLabel` 依赖的可访问名称逐字不变。
+  - 新增一条硬约束：Vue 官方属性顺序违规会让 `pnpm lint` 失败。
+  - 若后续引入 `eslint-plugin-vuejs-accessibility`，必须覆盖 `label-has-for` 的默认 `{ every: ['nesting', 'id'] }`（旧 jsx-a11y 语义），否则显式 `for`/`id` 的正确写法会被误报——本仓库试跑 25 处告警中 22 处是该误报。
+- 文档：
+  - [docs/components/README.md](./components/README.md)、[base-modal.md](./components/base-modal.md)、[locale-switcher.md](./components/locale-switcher.md)
+  - [docs/engineering.md](./engineering.md)（§6.2）
+  - 本条变更记录
+- 验证：`pnpm docs:check`、`pnpm format:check`、`pnpm lint`（`vue/attributes-order` 已为 error）、`pnpm type-check`、`pnpm test:unit:run`、`pnpm build`、`pnpm test:e2e`（18 passed）。a11y 试跑复检剩 2 处，均为插件不把 `role="dialog"` 视为 interactive role 的 `no-static-element-interactions` 误报（`BaseModal`、`AppSidebar`）。
+
+### [Framework] 共享组件 `data-slot`/`data-state` 契约与行为文档
+
+- 日期：2026-11-16
+- 变更：
+  - 共享交互组件统一暴露 `data-slot`：[BaseModal.vue](../src/components/ui/BaseModal.vue)（`modal`、`modal-panel`、`modal-title`、`modal-description`、`modal-close`、`modal-body`、`modal-footer`、`modal-backdrop`、`modal-header`）、[AppSidebar.vue](../src/components/layout/AppSidebar.vue)（`sidebar-desktop`、`drawer`、`drawer-panel`、`drawer-close`、`drawer-backdrop`）、[ToastContainer.vue](../src/components/ui/ToastContainer.vue)（`toast-region`、`toast`、`toast-close`）、[TaskCheckbox.vue](../src/components/tasks/TaskCheckbox.vue)、[ThemeToggle.vue](../src/components/ui/ThemeToggle.vue)、[LocaleSwitcher.vue](../src/components/ui/LocaleSwitcher.vue)（`locale-switcher`、`locale-select`）。
+  - 有状态的部件增加 `data-state`（`open`/`closed`/`checked`/`unchecked`/`light`/`dark`），变体与尺寸用 `data-variant`/`data-size`；既有 `data-testid`（`toast`、`locale-switcher`）保留原名，避免改既有 E2E。
+  - 新增 [docs/components/](./components/README.md)：约定与索引 + 6 份组件行为契约（modal/抽屉/toast/checkbox/主题/语言），把键盘、焦点、ARIA、状态属性、已知限制从 AGENTS.md 的长规则里分离出来。
+  - 新增 [base-modal.spec.ts](../src/__tests__/base-modal.spec.ts)（7 例：`data-slot`/`data-state`/`data-size` 契约、滚动锁、`data-autofocus` 优先级、Escape 与焦点归还、Tab 双向循环、footer 条件渲染）与 [ui-contract.spec.ts](../src/__tests__/ui-contract.spec.ts)（4 例：`data-slot`/`data-state` 契约）。
+  - [tsconfig.vitest.json](../tsconfig.vitest.json) 的 `lib` 由 `[]` 改为 `["ES2022", "DOM", "DOM.Iterable"]`：`lib: []` 会退到更旧的默认 lib，让**首个 import SFC 的组件测试**在 `.at()` 等 API 上报 TS2550；这是本次新增组件测试才暴露的存量配置缺口。
+- 影响：
+  - 组件 DOM 只新增属性，视觉、事件契约、`role` 与可访问名称均未变化；旧选择器（class、`role`、`data-testid`）继续有效。
+  - `BaseModal` 的既有行为被写进文档并固定：不处理嵌套弹窗；缺少 `data-autofocus` 时焦点落在标题栏关闭按钮。
+  - 新增强制范围：带键盘/焦点/`data-state` 行为的共享组件必须带 `data-slot`，并在 `docs/components/` 有说明；测试用 `data-slot` 定位，不用 class。
+- 文档：
+  - [docs/architecture.md](./architecture.md)（§3 目录职责、§7 新增共享 UI、§8 测试架构）
+  - [docs/engineering.md](./engineering.md)（§6.2 Vue 与组件）
+  - [docs/README.md](./README.md)（文档索引与事实归属）
+  - [README.md](../README.md)（文档表与工程结构）
+  - [AGENTS.md](../AGENTS.md)（§1.2 组件任务的读取路由）
+  - [docs/components/](./components/README.md)（新增 7 份）
+- 验证：`pnpm docs:check`（25 文件、202 相对链接通过）、`pnpm format:check`、`pnpm lint`（含 `check:components`）、`pnpm type-check`、`pnpm test:unit:run`（14 文件 77 用例通过）、`pnpm build`（PWA 预缓存 46 项）、`pnpm test:e2e`（18 passed）。
+
+## 2026-11-15
+
+### [Framework] 首屏静态骨架与 Service Worker 延后注册
+
+- 日期：2026-11-15
+- 变更：
+  - [index.html](../index.html) 在 `#app` 内内联静态骨架（顶栏 + 卡片占位，只含布局与色块、不含需要 i18n 的文案），颜色与设计 Token 一致并跟随 `.dark`；入口 bundle 解析前即可绘制首屏。
+  - [vite.config.ts](../vite.config.ts) 设置 `VitePWA.injectRegister: null`，不再注入注册脚本；[src/main.ts](../src/main.ts) 改为 `window load` + `requestIdleCallback`（3 秒封顶，退回 1.5 秒定时器）动态 `import('virtual:pwa-register')` 注册。
+  - 同一处增加 vue-i18n 编译期开关（关闭全局安装、legacy API 与生产 devtools）；本模板只用 `useI18n()`，`$t` 等全局能力不参与构建。
+  - [src/App.vue](../src/App.vue) 的登录弹窗改为 `defineAsyncComponent`，首屏不加载该 chunk；`GlobalLoading` 与 Toast 保持常驻。
+- 影响：
+  - 首屏不再等待入口 bundle 才开始绘制；首次访问可能来不及完成预缓存，第二次访问才具备完整离线能力。
+  - 挂载仍然在 `router.isReady()` 之后：布局依赖 `route.meta.layout`，提前挂载会先渲染错误布局；骨架承担首帧可见职责。
+  - 依赖全局 `$t`/`$d` 的写法将不可用（当前代码不存在这种用法）。
+- 文档：
+  - [docs/architecture.md](./architecture.md)（§3、§4、§5、§6.8）
+  - [docs/engineering.md](./engineering.md)（§2.2、§11）
+  - [README.md](../README.md)（功能、工程结构、关键设计 §9/§10）
+- 验证：`pnpm type-check`、`pnpm lint`、`pnpm test:unit:run`、`pnpm build` 通过；`dist/index.html` 含骨架且不再注入 `registerSW`；`pnpm test:e2e` 18 passed。
+
+### [Framework] 全局阻塞 loading 与就地登录（会话过期续接）
+
+- 日期：2026-11-15
+- 变更：
+  - 新增 [src/stores/loading.ts](../src/stores/loading.ts)：任务栈式全局 loading（`begin`/`end`/`run`/`reset`），并发与嵌套各自持有 id；新增 [GlobalLoading.vue](../src/components/ui/GlobalLoading.vue)，`role=status`、`aria-busy`、`prefers-reduced-motion`。
+  - 新增 [src/stores/login-dialog.ts](../src/stores/login-dialog.ts) 与 [LoginDialog.vue](../src/components/auth/LoginDialog.vue)：`reason: 'expired' | 'required'`、`onSuccess` 续接动作、后到的 `open()` 覆盖上下文。
+  - [src/main.ts](../src/main.ts) 的 401 处理分流：已登录用户清理会话并打开弹窗（页面不卸载），游客仍由路由守卫整页跳转；同时重置 loading 任务栈。
+  - [src/views/settings/index.vue](../src/views/settings/index.vue) 保存资料捕获 401 时登记 `onSuccess` 重试本次保存；改密与退出登录改用 `loading.run()`。
+  - 中英文语言包新增 `globalLoading.*` 与 `auth.dialog.*`。
+- 影响：
+  - 已登录用户会话过期后不再整页跳 `/login`，表单内容与当前路由保留；登录成功后自动续接被中断的操作。
+  - 游客路径不变（`/login?redirect=`）。
+  - 登录弹窗在下一次打开时从上一次的上下文开始（关闭即清空）。
+- 文档：
+  - [docs/architecture.md](./architecture.md)（§3、§5、§6.4、§7、§8）
+  - [docs/engineering.md](./engineering.md)（§6.3、§11）
+  - [README.md](../README.md)（功能、工程结构、关键设计 §11、测试策略）
+- 验证：`pnpm type-check`、`pnpm lint`、`pnpm test:unit:run`（66 项，含 loading 4 项、login-dialog 4 项）、`pnpm build`、`pnpm test:e2e`（18 passed，含 `e2e/session-expiry.spec.ts` 2 项）。
+
+### [Framework] 缓存配方：结构校验与引用稳定
+
+- 日期：2026-11-15
+- 变更：
+  - [src/utils/localCache.ts](../src/utils/localCache.ts) 新增 `peekValidated(key, isT)`：过期条目也不再直接返回，结构不匹配视为未命中，避免缓存结构升级后渲染缺字段数据。
+  - 同文件导出 `sameItems(current, next)`：内容一致时调用方保留原数组引用，减少列表重绘。
+  - [docs/architecture.md](./architecture.md) §6.3 将缓存规则收敛为 6 条：全维度键 + 版本前缀、按 ID 再索引、只缓存成功非空、读取校验结构、SWR、引用稳定。
+- 影响：`localCache` 的既有 API 与存储键不变；新增两个纯函数，无迁移成本。
+- 文档：[docs/architecture.md](./architecture.md)（§6.3）、[docs/engineering.md](./engineering.md)（§6.3）、[README.md](../README.md)。
+- 验证：`pnpm test:unit:run`（localCache 10 项，含旧结构拒绝与 `sameItems` 引用判断）、`pnpm type-check`、`pnpm lint`。
+
+### [Framework] dev:proxy 同源代理与发布构建的 API 地址校验
+
+- 日期：2026-11-15
+- 变更：
+  - 新增 `.env.proxy` 与 `pnpm dev:proxy`（`vite --mode proxy`）：`/api` 代理到 `API_PROXY_TARGET`（默认 `http://127.0.0.1:3000`），该变量无 `VITE_` 前缀、不进入客户端包；该模式不挂载本地鉴权适配层。
+  - [deploy/build.sh](../deploy/build.sh) 新增 `--build-only` / `SKIP_TYPE_CHECK=1`（跳过 `pnpm build` 内置类型检查，供 CI 已单独执行 type-check 的流水线使用），并解析 `VITE_API_BASE_URL`：缺失、相对路径或 loopback 时警告，`STRICT_ENV=1` 时失败。
+  - [docs/architecture.md](./architecture.md) 新增硬规则：离开 SPA 的第三方跳转地址必须由 API 返回后再跳转，不能前端拼 URL（跳转带不上鉴权与客户端标识头）。
+- 影响：多一种 Vite mode；默认 `pnpm dev`/`preview`/E2E 行为不变。发布流水线可用 `--build-only` 避免重复类型检查，同时由 `STRICT_ENV=1` 拦住误配置。
+- 文档：[docs/engineering.md](./engineering.md)（§2、§3、§9、§11）、[README.md](../README.md)（快速开始、脚本、环境变量、部署）、[docs/architecture.md](./architecture.md)（§6.2）。
+- 验证：`bash -n`、`--help`；`bash deploy/build.sh --skip-install` 通过（Git Bash、Node 24 / pnpm 11）；`STRICT_ENV=1 bash deploy/build.sh --skip-install` 以明确原因退出 1。
+
+### [Docs] 后端待办登记与变更记录的替代字段
+
+- 日期：2026-11-15
+- 变更：
+  - 新增 [docs/todo/backend.md](./todo/backend.md)：稳定编号（`B1`…）、状态、当前前端行为、期望后端行为、关闭结论；关闭条目保留编号，不复用。
+  - [docs/README.md](./README.md) 增加文档索引、事实归属与治理规则各一行。
+  - 本文件的记录模板新增 `替代：<旧条目标题>` 字段；推翻旧决策时写替代关系，旧记录不删除。
+- 影响：跨团队待办有了单一来源，避免同一个接口问题在 PR、聊天和规格里反复出现。
+- 文档：本文、[docs/README.md](./README.md)。
+- 验证：`pnpm docs:check` 通过（18 个文档、144 个相对链接）。
 
 ---
 

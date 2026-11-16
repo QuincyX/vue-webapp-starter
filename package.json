@@ -11,6 +11,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "dev:proxy": "vite --mode proxy",
     "build": "run-p type-check \"build-only {@}\" --",
     "preview": "vite preview",
     "type-check": "run-s type-check:app type-check:node type-check:vue",

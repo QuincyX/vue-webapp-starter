@@ -12,6 +12,11 @@ export const enUS: MessageSchema = {
     required: 'Required',
     docs: 'Docs',
   },
+  globalLoading: {
+    default: 'Working…',
+    signingOut: 'Signing out…',
+    savingPassword: 'Saving…',
+  },
   nav: {
     section: 'Workspace',
     mainLabel: 'Main navigation',
@@ -52,6 +57,15 @@ export const enUS: MessageSchema = {
   auth: {
     user: {
       fallback: 'User',
+    },
+    dialog: {
+      requiredTitle: 'Sign in to continue',
+      requiredDescription: 'Sign in to finish what you started. The page keeps your input.',
+      expiredTitle: 'Your session expired',
+      expiredDescription: 'Sign in again to keep going. This page and your input stay as they are.',
+      submit: 'Sign in and continue',
+      cancel: 'Not now',
+      success: 'Signed in again',
     },
     brand: {
       eyebrow: 'A quieter way to work',

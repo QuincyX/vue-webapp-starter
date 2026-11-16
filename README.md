@@ -15,14 +15,15 @@
 
 ## 文档与协作
 
-| 文档                                                         | 内容                                   |
-| ------------------------------------------------------------ | -------------------------------------- |
-| [AGENTS.md](./AGENTS.md)                                     | Agent 协作硬性规则、变更分类、完成定义 |
-| [specs/README.md](./specs/README.md)                         | 功能规格、计划、任务与验收流程         |
-| [docs/README.md](./docs/README.md)                           | 工程文档索引与文档治理规则             |
-| [docs/architecture.md](./docs/architecture.md)               | 分层、模块边界、数据流与扩展位置       |
-| [docs/engineering.md](./docs/engineering.md)                 | 环境、脚本、质量门禁、依赖与测试约束   |
-| [docs/framework-changelog.md](./docs/framework-changelog.md) | 非业务层框架变更的追加式记录           |
+| 文档                                                         | 内容                                    |
+| ------------------------------------------------------------ | --------------------------------------- |
+| [AGENTS.md](./AGENTS.md)                                     | Agent 协作硬性规则、变更分类、完成定义  |
+| [specs/README.md](./specs/README.md)                         | 功能规格、计划、任务与验收流程          |
+| [docs/README.md](./docs/README.md)                           | 工程文档索引与文档治理规则              |
+| [docs/architecture.md](./docs/architecture.md)               | 分层、模块边界、数据流与扩展位置        |
+| [docs/engineering.md](./docs/engineering.md)                 | 环境、脚本、质量门禁、依赖与测试约束    |
+| [docs/components/](./docs/components/README.md)              | 共享交互组件的键盘、ARIA 与状态属性契约 |
+| [docs/framework-changelog.md](./docs/framework-changelog.md) | 非业务层框架变更的追加式记录            |
 
 > **硬性约束：任何非业务层的框架功能变更，都必须在同一次变更中更新 [框架变更记录](./docs/framework-changelog.md)，并按 [文档更新矩阵](./AGENTS.md#31-强制文档更新矩阵) 更新受影响的文档。没有同步文档的框架变更视为未完成。**  
 > CI 会通过 `pnpm docs:check` 校验关键文档存在性和相对链接。
@@ -47,6 +48,12 @@ pnpm dev
 
 也可以注册新账号。账号数据写入本地 `.data/auth-users.json`，不会提交到版本库；该适配层**不是生产后端**，生产需接入真实 `/api/auth/*` 服务。
 
+需要对接真实后端时，用同源代理模式避免本地 CORS 配置：
+
+```bash
+pnpm dev:proxy   # 读取 .env.proxy 的 API_PROXY_TARGET，转发 /api 到真实后端
+```
+
 生产构建：
 
 ```bash
@@ -59,6 +66,9 @@ pnpm preview
 ## 功能
 
 - **账号与鉴权**：邮箱密码注册、登录、退出、刷新会话、受保护路由、原路径回跳、显示名称与密码修改；不接入第三方登录。
+- **就地登录与会话续接**：已登录用户的会话过期时保留当前页面与已填内容，用登录弹窗就地续接（如保存资料失败后自动重试）；游客仍走整页登录墙 + 原路径回跳。
+- **全局阻塞 loading**：任务栈管理的整页遮罩，供退出登录、改密等不可重复提交的操作使用，并发/嵌套不会互相提前关闭。
+- **首屏骨架**：`index.html` 内联静态骨架，FCP 不等入口 bundle；Service Worker 延后到 `load` 后的空闲时注册，预缓存不与首屏抢带宽。
 - **总览仪表盘**：任务总量、完成率、逾期数量、近 7 天完成趋势、优先级分布与最近动态。
 - **任务管理**：创建、编辑、完成、删除，支持状态/优先级筛选、关键词搜索和多种排序。
 - **中英文 i18n**：完整界面文案切换、持久化语言偏好、`html lang`、文档标题、日期/数字格式与请求头同步更新。
@@ -160,11 +170,14 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 │   ├── architecture.md         # 分层、数据流、模块边界
 │   ├── engineering.md          # 环境、命令、质量门禁、约束
 │   ├── framework-changelog.md  # 框架变更记录
+│   ├── components/             # 共享交互组件的行为契约（data-slot/键盘/ARIA）
+│   ├── todo/backend.md         # 等待后端配合的开放事项（稳定编号）
 │   └── *.png                   # README 截图
 ├── e2e/
 │   ├── helpers.ts              # 登录、清理会话、横向溢出断言
 │   ├── fixtures.ts             # 网络层假接口（CORS/OPTIONS/自动清理）
 │   ├── auth.spec.ts            # 守卫、回跳、注册、改密、表单校验
+│   ├── session-expiry.spec.ts  # 会话过期就地续接、游客登录墙
 │   ├── tasks.spec.ts           # 仪表盘、任务、移动端抽屉
 │   ├── settings.spec.ts        # 主题、语言、后端连接成败
 │   └── responsive.spec.ts      # 390 / 768 / 1440 无横向溢出
@@ -194,10 +207,11 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 │   │   └── tasks.ts            # 任务 API 契约示例
 │   ├── assets/main.css         # Tailwind 入口、设计 Token、动效
 │   ├── components/
+│   │   ├── auth/               # 就地登录弹窗
 │   │   ├── brand/              # 品牌 Logo
 │   │   ├── layout/             # 侧边栏、顶栏
 │   │   ├── tasks/              # 任务表单、列表项、徽标
-│   │   └── ui/                 # Modal、Toast、主题/语言切换、安装入口
+│   │   └── ui/                 # Modal、Toast、全局 loading、主题/语言切换、安装入口
 │   ├── composables/            # 主题、Toast、时间、表单、API 错误文案、安装引导
 │   ├── config/env.ts           # 运行时环境变量校验
 │   ├── constants/task.ts       # 状态/优先级展示元数据
@@ -209,7 +223,7 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 │   │   ├── AuthLayout.vue      # 登录/注册页壳
 │   │   └── DefaultLayout.vue
 │   ├── router/index.ts         # 懒加载路由、认证守卫、标题、滚动
-│   ├── stores/                 # Pinia：Auth、任务、health 远端范式、单例实例
+│   ├── stores/                 # Pinia：Auth、任务、health 远端范式、loading、登录弹窗、单例实例
 │   ├── types/                  # Zod Schema 与领域类型
 │   ├── utils/                  # 日期、安全 redirect、TTL 缓存
 │   ├── views/                  # 每个地址一个目录，入口固定 index.vue
@@ -222,6 +236,8 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 │   ├── App.vue                 # 布局切换与 Toast
 │   └── main.ts
 ├── types/vue-shim.d.ts         # 让 tsc 独立检查 .ts 时忽略 SFC 实现
+├── .env.example                # 可配置项示例（复制为 .env.local）
+├── .env.proxy                  # pnpm dev:proxy 的同源代理配置
 ├── env.d.ts
 ├── eslint.config.ts
 ├── playwright.config.ts
@@ -237,10 +253,12 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 
 ```bash
 pnpm dev
+pnpm dev:proxy          # 同源代理到真实后端（.env.proxy）
 pnpm build
 pnpm preview
 pnpm check:components   # 纯转发组件检查（已并入 pnpm lint）
 bash deploy/build.sh    # 可复现发布构建
+bash deploy/build.sh --build-only  # 跳过类型检查（CI 已单独执行）
 bash deploy/publish.sh  # 发布到 S3（需要 S3_BUCKET）
 ```
 
@@ -290,6 +308,7 @@ pnpm test:e2e
 - 401 会清除 `orbit.access-token.v1` 并派发 `orbit:unauthorized` 事件；`main.ts` 统一清理 Auth Store 并跳转登录，保留原路径。
 - `ApiError` 携带 `status`、`requestId`、`details`，便于日志与排障。
 - `request<T>()` 返回响应体，API 模块再用 Zod 校验响应结构，避免把 `unknown` 直接断言为业务类型。
+- 任何离开 SPA 的第三方跳转（OAuth 授权、支付收银台）地址必须由接口返回后再 `location.assign`：直接拼 URL 的跳转带不上鉴权头与客户端标识头，多租户后端会直接拒绝。
 
 ```ts
 import { authApi, taskApi } from '@/api'
@@ -375,6 +394,10 @@ export default defineConfig({
 | `VITE_API_BASE_URL` | `/api`   | Axios `baseURL`；可以是相对路径或完整 URL                |
 | `VITE_API_TIMEOUT`  | `10000`  | 请求超时（毫秒）                                         |
 
+`pnpm dev:proxy` 额外读取 `.env.proxy` 的 `API_PROXY_TARGET`（默认 `http://127.0.0.1:3000`）。它没有 `VITE_` 前缀，只存在于开发服务器，不会进入客户端包。
+
+发布构建会解析 `VITE_API_BASE_URL`：未设置、是相对路径或指向 `localhost` 时给出警告；`STRICT_ENV=1` 时直接失败，避免把本地地址打进生产产物。
+
 `src/config/env.ts` 会在启动时用 Zod 校验变量，配置错误会直接抛出明确异常。只有 `VITE_` 前缀变量会进入客户端包，**不要在前端环境变量中放密钥**。
 
 ## 关键设计
@@ -422,12 +445,22 @@ export default defineConfig({
 
 ### 9. PWA
 
-`vite-plugin-pwa` 在构建时生成 manifest 与 Workbox Service Worker（`autoUpdate`），开发服务器不注册。应用外壳离线可打开，`/api/*` 不在预缓存内。安装入口在设置页：Chromium 显示「安装到设备」，iOS 显示「分享 → 添加到主屏幕」，独立运行或已安装时不渲染。名称来自 `VITE_APP_TITLE`，图标位于 `public/icons/`。
+`vite-plugin-pwa` 在构建时生成 manifest 与 Workbox Service Worker（`autoUpdate`），开发服务器不注册。注册由 `src/main.ts` 在 `window load` 后的空闲时触发（`requestIdleCallback`，3 秒封顶），预缓存不与首屏争带宽。应用外壳离线可打开，`/api/*` 不在预缓存内。安装入口在设置页：Chromium 显示「安装到设备」，iOS 显示「分享 → 添加到主屏幕」，独立运行或已安装时不渲染。名称来自 `VITE_APP_TITLE`，图标位于 `public/icons/`。
+
+### 10. 首屏骨架与启动顺序
+
+`index.html` 在 `#app` 内内联一段静态骨架（只含布局与色块，不含需要 i18n 的文案），入口 bundle 解析前就能画出首屏，因此 FCP 不再等待 Vue。`main.ts` 仍然等 `router.isReady()` 再挂载：本模板的布局取决于 `route.meta.layout`，提前挂载会先渲染错误布局；骨架已经承担了首帧可见的职责。骨架颜色与设计 Token 一致，并跟随 `.dark` 切换。
+
+### 11. 就地登录与阻塞 loading
+
+- `useLoginDialogStore()` 打开登录弹窗，`reason: 'expired'` 时显示会话过期文案；登录成功后先关闭弹窗，再执行页面登记的 `onSuccess`。设置页保存资料时捕获 401 并登记“重试这次保存”，所以重新登录后不会丢失已填内容。
+- 全局 401 处理器只负责清理会话与打开弹窗，不自动重放请求：HTTP 层不知道请求是否可安全重放。
+- `useLoadingStore().run()` 用任务栈管理整页遮罩：并发或嵌套操作各自持有 id，最后一个结束才收起，失败也会在 `finally` 中释放。
 
 ## 测试策略
 
 - **单元测试**：任务 Store 的增删改查、持久化、导入导出、错误数据拒绝、排序规则；Auth Store 的会话恢复、登录/退出/401/密码变更与 Zod 校验；日期工具在本地时区下的边界；任务列表组件事件；Axios 拦截器的鉴权、语言头、请求 ID 与 401 归一化。
-- **端到端测试**（按域拆分）：`auth`（守卫与原路径回跳、注册/刷新会话/退出、资料修改、改密后旧凭据失效、登录与注册表单校验）、`tasks`（任务创建/完成/持久化、移动端抽屉）、`settings`（主题与语言持久化、后端连接成功与 5xx 失败并显示请求 ID）、`responsive`（390/768/1440 无横向溢出）。
+- **端到端测试**（按域拆分）：`auth`（守卫与原路径回跳、注册/刷新会话/退出、资料修改、改密后旧凭据失效、登录与注册表单校验）、`session-expiry`（会话过期的就地续接与重试、游客登录墙）、`tasks`（任务创建/完成/持久化、移动端抽屉）、`settings`（主题与语言持久化、后端连接成功与 5xx 失败并显示请求 ID）、`responsive`（390/768/1440 无横向溢出）。
 - **E2E 假接口**：`e2e/fixtures.ts` 用 `page.route` 在网络层拦截，自动处理 CORS 预检并在用例结束后清理；`e2e/helpers.ts` 收敛登录与断言，避免各 spec 复制。
 - **CI 顺序**：文档链接检查 → 格式检查 → Lint（含组件结构检查）→ 类型检查（TS7 + vue-tsc）→ 单测 → 构建 → Playwright E2E；失败时上传 Playwright 报告。
 - 完整命令、质量门禁和故障处理以 [docs/engineering.md](./docs/engineering.md#4-完整质量门禁) 为准；本文不重复维护完整脚本表。
@@ -440,10 +473,11 @@ export default defineConfig({
 
 ```bash
 bash deploy/build.sh --with-tests   # 校验 Node/pnpm、冻结锁文件安装、构建、断言 dist 产物
+bash deploy/build.sh --build-only   # 跳过类型检查（CI 已单独跑过 pnpm type-check）
 bash deploy/publish.sh --build      # 上传 S3：assets/ immutable，入口与 SW/manifest no-cache
 ```
 
-- `STRICT_ENV=1 bash deploy/build.sh` 会在检测到 `.env.local` 时失败，避免本地调试配置进入生产。
+- `STRICT_ENV=1 bash deploy/build.sh` 会在检测到 `.env.local`、`VITE_API_BASE_URL` 缺失/相对/指向 localhost 时失败，避免本地调试配置进入生产。
 - S3 目标与凭据来自环境变量或 `deploy/deploy.env.local`（复制 [deploy.env.example](./deploy/deploy.env.example)，已被 Git 忽略）。
 - 不使用 S3 时只取 `dist/`，用 nginx 或任意 CDN 托管，注意把 `index.html`、`sw.js` 与 `manifest.webmanifest` 设为 `no-cache`。
 
@@ -475,9 +509,4 @@ export default defineConfig(({ mode }) => {
 
 ## 变更与文档约束
 
-本项目对“框架能力”和“业务示例”做了明确区分：
-
-- 业务变更：示例任务领域、任务文案或页面交互。
-- 框架变更：依赖、构建、TypeScript、路由/状态/API 架构、i18n、主题、共享 UI、环境变量、CI、部署、Agent 规则等。
-
-**框架变更必须在同一次提交中更新 [框架变更记录](./docs/framework-changelog.md)，并按 [AGENTS.md](./AGENTS.md) 的矩阵更新架构说明、工程说明、README 或 Agent 规则。** 未更新文档的框架变更不应合并。CI 会执行 `pnpm docs:check` 校验文档链接，PR 模板也包含文档确认项。
+业务变更（示例任务领域）与框架变更（依赖、构建、架构、共享 UI、CI 等）的判定、文档更新矩阵和交付要求只维护在 [AGENTS.md §3](./AGENTS.md#3-最高优先级框架变更必须更新文档)。一句话：**框架变更必须在同一次提交中更新[框架变更记录](./docs/framework-changelog.md)和矩阵要求文档，未更新文档不应合并**。CI 用 `pnpm docs:check` 校验文档链接，PR 模板包含文档确认项。

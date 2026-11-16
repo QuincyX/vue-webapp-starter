@@ -28,6 +28,7 @@ function handleChange(event: Event): void {
 
 <template>
   <label
+    data-slot="locale-switcher"
     class="flex items-center gap-2"
     :class="
       variant === 'card'
@@ -39,6 +40,7 @@ function handleChange(event: Event): void {
     <span class="sr-only">{{ t('common.language') }}</span>
     <select
       :value="currentLocale"
+      data-slot="locale-select"
       class="min-w-0 flex-1 cursor-pointer appearance-none bg-transparent text-xs font-medium outline-none"
       :class="variant === 'compact' ? 'w-auto' : 'w-full'"
       data-testid="locale-switcher"

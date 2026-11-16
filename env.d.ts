@@ -1,4 +1,5 @@
 /// <reference types="vite/client" />
+/// <reference types="vite-plugin-pwa/client" />
 
 interface ImportMetaEnv {
   readonly VITE_APP_TITLE: string
@@ -13,3 +14,8 @@ interface ImportMeta {
 
 declare const __APP_VERSION__: string
 declare const __BUILD_TIME__: string
+
+// Build-time flags consumed by vue-i18n's bundler build (see `vite.config.ts`).
+declare const __VUE_I18N_FULL_INSTALL__: boolean
+declare const __VUE_I18N_LEGACY_API__: boolean
+declare const __INTLIFY_PROD_DEVTOOLS__: boolean

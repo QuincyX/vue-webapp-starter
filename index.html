@@ -29,9 +29,107 @@
         }
       })()
     </script>
+    <style>
+      /*
+       * Static first-paint skeleton. It is painted before the entry bundle is
+       * parsed, so FCP no longer waits for Vue; `main.ts` mounts over it.
+       *
+       * Rules: layout-only (no copy that would need i18n), same tokens as the
+       * app, and no animation, so the swap cannot cause extra layout work.
+       */
+      html,
+      body {
+        margin: 0;
+        background: oklch(0.975 0.005 85);
+      }
+      html.dark,
+      html.dark body {
+        background: oklch(0.17 0.012 260);
+      }
+      .boot {
+        --boot-card: oklch(0.995 0.003 85);
+        --boot-muted: oklch(0.95 0.007 85);
+        --boot-border: oklch(0.89 0.008 85);
+        min-height: 100dvh;
+        background: oklch(0.975 0.005 85);
+        box-sizing: border-box;
+      }
+      html.dark .boot {
+        --boot-card: oklch(0.205 0.014 260);
+        --boot-muted: oklch(0.26 0.016 260);
+        --boot-border: oklch(0.31 0.018 260);
+        background: oklch(0.17 0.012 260);
+      }
+      .boot__bar {
+        display: flex;
+        height: 64px;
+        align-items: center;
+        gap: 12px;
+        padding: 0 24px;
+        border-bottom: 1px solid var(--boot-border);
+      }
+      .boot__logo {
+        width: 108px;
+        height: 14px;
+        border-radius: 999px;
+        background: var(--boot-muted);
+      }
+      .boot__pill {
+        width: 96px;
+        height: 32px;
+        margin-left: auto;
+        border-radius: 999px;
+        background: var(--boot-muted);
+      }
+      .boot__body {
+        display: grid;
+        gap: 20px;
+        padding: 24px;
+        max-width: 1200px;
+      }
+      @media (min-width: 1024px) {
+        .boot__body {
+          padding: 32px 32px 32px 320px;
+        }
+      }
+      .boot__hero {
+        height: 132px;
+        border: 1px solid var(--boot-border);
+        border-radius: 20px;
+        background: var(--boot-card);
+      }
+      .boot__card {
+        display: grid;
+        gap: 12px;
+        padding: 20px;
+        border: 1px solid var(--boot-border);
+        border-radius: 20px;
+        background: var(--boot-card);
+      }
+      .boot__row {
+        height: 44px;
+        border-radius: 12px;
+        background: var(--boot-muted);
+      }
+    </style>
   </head>
   <body>
-    <div id="app"></div>
+    <div id="app">
+      <div class="boot" aria-hidden="true" data-testid="boot-skeleton">
+        <div class="boot__bar">
+          <span class="boot__logo"></span>
+          <span class="boot__pill"></span>
+        </div>
+        <div class="boot__body">
+          <div class="boot__hero"></div>
+          <div class="boot__card">
+            <span class="boot__row"></span>
+            <span class="boot__row"></span>
+            <span class="boot__row"></span>
+          </div>
+        </div>
+      </div>
+    </div>
     <noscript>
       <p style="padding: 2rem; font-family: sans-serif">请启用 JavaScript 以使用 Orbit 工作台。</p>
     </noscript>

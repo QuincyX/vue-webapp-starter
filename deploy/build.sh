@@ -10,12 +10,14 @@
 #   bash deploy/build.sh                  # install deps (frozen) + full build
 #   bash deploy/build.sh --with-tests     # ... after running unit tests
 #   bash deploy/build.sh --skip-install   # reuse an existing node_modules
+#   bash deploy/build.sh --build-only     # skip type-check (CI already ran it)
 #   bash deploy/build.sh --help
 #
 # Environment:
-#   SKIP_INSTALL=1   skip pnpm install (requires node_modules)
-#   FORCE_INSTALL=1  reinstall from the lockfile even when up to date
-#   STRICT_ENV=1     fail when a local env override would leak into the build
+#   SKIP_INSTALL=1    skip pnpm install (requires node_modules)
+#   FORCE_INSTALL=1   reinstall from the lockfile even when up to date
+#   SKIP_TYPE_CHECK=1 build with Vite only; `pnpm type-check` must have run separately
+#   STRICT_ENV=1      fail on local env overrides and on a non-absolute API base URL
 #
 # Exit codes: 0 success; 1 environment/build failure; 2 bad arguments.
 
@@ -30,6 +32,7 @@ SCRIPT_DIR="$(cd -- "$(dirname -- "${BASH_SOURCE[0]}")" && pwd)"
 ROOT_DIR="$(cd -- "${SCRIPT_DIR}/.." && pwd)"
 
 RUN_TESTS=0
+SKIP_TYPE_CHECK=0
 PNPM_VERSION=""
 
 log() { printf '[build] %s\n' "$*"; }
@@ -44,16 +47,19 @@ trap 'status=$?; printf "[build] error: command failed (line %s, exit %s)\n" "${
 
 usage() {
   cat <<'USAGE'
-Usage: bash deploy/build.sh [--with-tests] [--skip-install]
+Usage: bash deploy/build.sh [--with-tests] [--skip-install] [--build-only]
 
   --with-tests     run pnpm test:unit:run before building
   --skip-install   reuse the existing node_modules
+  --build-only     skip the type-check bundled in `pnpm build`
   -h, --help       show this help
 
 Environment:
-  SKIP_INSTALL=1   same as --skip-install
-  FORCE_INSTALL=1  force a reinstall from pnpm-lock.yaml
-  STRICT_ENV=1     fail when .env.local / .env.production.local exists
+  SKIP_INSTALL=1    same as --skip-install
+  FORCE_INSTALL=1   force a reinstall from pnpm-lock.yaml
+  SKIP_TYPE_CHECK=1 same as --build-only
+  STRICT_ENV=1      fail when .env.local / .env.production.local exists, or when
+                    VITE_API_BASE_URL is missing, relative, or points at localhost
 USAGE
 }
 
@@ -110,6 +116,54 @@ check_env_overrides() {
   done
 }
 
+# Resolve VITE_API_BASE_URL the way Vite would: shell environment first, then the
+# env files in increasing precedence. Only `.env.example` is committed, so a
+# missing value means the template default (`/api`) is in effect.
+resolve_api_base_url() {
+  local value="${VITE_API_BASE_URL:-}"
+  local file line
+
+  for file in .env .env.production .env.local .env.production.local; do
+    [[ -f "${ROOT_DIR}/${file}" ]] || continue
+    line="$(grep -E '^[[:space:]]*VITE_API_BASE_URL[[:space:]]*=' "${ROOT_DIR}/${file}" | tail -n 1 || true)"
+    [[ -n "${line}" ]] || continue
+    value="${line#*=}"
+    value="${value%%#*}"
+    value="$(printf '%s' "${value}" | tr -d '\r' | sed -e 's/^[[:space:]]*//' -e 's/[[:space:]]*$//' -e 's/^["'\'']//' -e 's/["'\'']$//')"
+  done
+
+  printf '%s' "${value}"
+}
+
+# A release build that silently ships a relative or loopback API base URL is the
+# most expensive configuration mistake in this template: the artifact builds, the
+# page loads, and every request fails in production. Warn by default so local
+# `bash deploy/build.sh` still works; fail under STRICT_ENV=1 (release pipelines).
+check_api_base_url() {
+  local base
+  base="$(resolve_api_base_url)"
+
+  if [[ -z "${base}" ]]; then
+    warn "VITE_API_BASE_URL is not set; the build falls back to '/api' (same-origin reverse proxy expected)"
+    [[ "${STRICT_ENV:-0}" == "1" ]] && die "STRICT_ENV=1 requires an explicit VITE_API_BASE_URL"
+    return 0
+  fi
+
+  if [[ "${base}" =~ ^https?://(localhost|127\.0\.0\.1|0\.0\.0\.0)([:/]|$) ]]; then
+    warn "VITE_API_BASE_URL points at a loopback host: ${base}"
+    [[ "${STRICT_ENV:-0}" == "1" ]] && die "STRICT_ENV=1 rejects a loopback VITE_API_BASE_URL"
+    return 0
+  fi
+
+  if [[ ! "${base}" =~ ^https?:// ]]; then
+    warn "VITE_API_BASE_URL is not an absolute URL: ${base} (same-origin reverse proxy expected)"
+    [[ "${STRICT_ENV:-0}" == "1" ]] && die "STRICT_ENV=1 requires an absolute VITE_API_BASE_URL"
+    return 0
+  fi
+
+  log "API base: ${base}"
+}
+
 install_deps() {
   if [[ "${SKIP_INSTALL:-0}" == "1" ]]; then
     log "SKIP_INSTALL=1: skipping pnpm install"
@@ -138,8 +192,13 @@ build_app() {
   step "Clean dist/"
   rm -rf -- "${ROOT_DIR}/dist"
 
-  step "Build (type-check + Vite production build)"
-  ( cd "$ROOT_DIR" && pnpm run build )
+  if [[ "${SKIP_TYPE_CHECK:-0}" == "1" ]]; then
+    step "Build (Vite only; type-check must have run separately)"
+    ( cd "$ROOT_DIR" && pnpm run build-only )
+  else
+    step "Build (type-check + Vite production build)"
+    ( cd "$ROOT_DIR" && pnpm run build )
+  fi
 
   [[ -f "${ROOT_DIR}/dist/index.html" ]] || die "build produced no dist/index.html"
   [[ -d "${ROOT_DIR}/dist/assets" ]] || die "build produced no dist/assets"
@@ -150,6 +209,7 @@ main() {
     case "$1" in
       --with-tests) RUN_TESTS=1 ;;
       --skip-install) export SKIP_INSTALL=1 ;;
+      --build-only) export SKIP_TYPE_CHECK=1 ;;
       -h|--help)
         usage
         exit 0
@@ -172,6 +232,7 @@ main() {
   log "project: ${ROOT_DIR}"
 
   check_env_overrides
+  check_api_base_url
   install_deps
   run_tests
   build_app

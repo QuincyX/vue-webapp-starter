@@ -63,6 +63,7 @@ watch(
 
 <template>
   <aside
+    data-slot="sidebar-desktop"
     class="fixed inset-y-0 left-0 z-40 hidden w-72 border-r border-border/70 bg-sidebar/90 backdrop-blur-xl lg:flex lg:flex-col"
   >
     <SidebarContent @navigate="emit('close')" />
@@ -70,8 +71,14 @@ watch(
 
   <Teleport to="body">
     <Transition name="drawer" appear>
-      <div v-if="mobileOpen" class="fixed inset-0 z-50 lg:hidden">
+      <div
+        v-if="mobileOpen"
+        data-slot="drawer"
+        data-state="open"
+        class="fixed inset-0 z-50 lg:hidden"
+      >
         <div
+          data-slot="drawer-backdrop"
           class="absolute inset-0 bg-slate-950/45 backdrop-blur-[2px]"
           aria-hidden="true"
           @click="emit('close')"
@@ -79,6 +86,7 @@ watch(
 
         <aside
           ref="panel"
+          data-slot="drawer-panel"
           class="drawer-panel absolute inset-y-0 left-0 w-[min(19rem,88vw)] border-r border-border bg-sidebar shadow-2xl"
           role="dialog"
           aria-modal="true"
@@ -88,6 +96,7 @@ watch(
           <button
             ref="closeButton"
             type="button"
+            data-slot="drawer-close"
             class="icon-btn icon-btn-sm absolute top-5 right-3 z-10"
             :aria-label="t('header.closeMenu')"
             @click="emit('close')"

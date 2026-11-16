@@ -19,18 +19,27 @@ export default defineConfig(({ mode }) => {
   // from src/config/env.ts (which validates it with Zod).
   const env = loadEnv(mode, process.cwd(), '')
   const appTitle = env.VITE_APP_TITLE?.trim() || 'Orbit'
+  // `pnpm dev:proxy` talks to a real backend on the same origin. The target is
+  // intentionally not prefixed with VITE_ so it never reaches the client bundle.
+  const isProxyMode = mode === 'proxy'
+  const proxyTarget = env.API_PROXY_TARGET?.trim() || 'http://127.0.0.1:3000'
 
   return {
     plugins: [
       vue(),
       tailwindcss(),
       vueDevTools(),
-      authMockPlugin(),
+      // The local auth mock and a real backend proxy are mutually exclusive.
+      ...(isProxyMode ? [] : [authMockPlugin()]),
       // PWA is opt-in per project: the manifest ships with the starter so a
       // product can rename it in one place (VITE_APP_TITLE) instead of
       // rediscovering the icon/`start_url`/service-worker requirements.
       VitePWA({
         registerType: 'autoUpdate',
+        // Registration is scheduled from `src/main.ts` after `load` + idle.
+        // The plugin must not inject its own script, or registration and
+        // precaching run while the first screen is still downloading.
+        injectRegister: null,
         includeAssets: [
           'favicon.svg',
           'apple-touch-icon.png',
@@ -83,6 +92,11 @@ export default defineConfig(({ mode }) => {
     define: {
       __APP_VERSION__: JSON.stringify(packageJson.version),
       __BUILD_TIME__: JSON.stringify(new Date().toISOString()),
+      // vue-i18n's bundler build trims the legacy API, global directives and
+      // devtools in production; this template only uses `useI18n()`.
+      __VUE_I18N_FULL_INSTALL__: false,
+      __VUE_I18N_LEGACY_API__: false,
+      __INTLIFY_PROD_DEVTOOLS__: false,
     },
     resolve: {
       alias: {
@@ -92,6 +106,16 @@ export default defineConfig(({ mode }) => {
     server: {
       port: 5173,
       strictPort: true,
+      ...(isProxyMode
+        ? {
+            proxy: {
+              '/api': {
+                target: proxyTarget,
+                changeOrigin: true,
+              },
+            },
+          }
+        : {}),
     },
     preview: {
       port: 4173,

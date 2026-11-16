@@ -75,6 +75,20 @@ function writeStorage(key: string, record: CacheRecord): void {
   }
 }
 
+/**
+ * True when two lists are structurally identical, so callers can keep the
+ * current array reference and avoid re-rendering a list that did not change.
+ *
+ * Uses a serialized comparison: a field-order change counts as a change, which
+ * is the safe direction (one extra render rather than a missed update).
+ */
+export function sameItems<T>(current: readonly T[], next: readonly T[]): boolean {
+  if (current === next) return true
+  if (current.length !== next.length) return false
+
+  return JSON.stringify(current) === JSON.stringify(next)
+}
+
 export const localCache = {
   set<T>(key: string | number, data: T, options: CacheOptions = {}): void {
     const id = toKey(key)
@@ -167,6 +181,23 @@ export const localCache = {
     }
 
     return [...result.values()]
+  },
+
+  /**
+   * Read a record regardless of expiry, but only when its shape still matches.
+   *
+   * Cache keys survive deployments while their payloads do not. Passing a guard
+   * (a Zod-derived `is` function or a small structural check) turns a stale
+   * structure into a miss instead of rendering fields that no longer exist.
+   */
+  peekValidated<T>(
+    key: string | number,
+    isValid: (value: unknown) => value is T,
+  ): CacheEntry<T> | null {
+    const entry = this.peek<unknown>(key)
+    if (!entry || !isValid(entry.data)) return null
+
+    return { ...entry, data: entry.data }
   },
 
   remove(key: string | number): void {

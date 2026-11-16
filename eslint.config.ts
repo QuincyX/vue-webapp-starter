@@ -29,6 +29,8 @@ export default defineConfigWithVueTs(
     rules: {
       'vue/multi-word-component-names': 'off',
       'vue/no-v-html': 'error',
+      // Vue 官方 Style Guide 的属性顺序（`data-*` 属 Other Attributes）；flat/recommended 只给 warn。
+      'vue/attributes-order': 'error',
     },
   },
 
