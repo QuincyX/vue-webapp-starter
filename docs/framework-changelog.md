@@ -27,6 +27,17 @@
 
 ## 2026-11-16
 
+### [Framework] 项目标识重命名为 vue-webapp-starter
+
+- 日期：2026-11-16
+- 变更：
+  - 项目目录 `webapp-vue-template` → `vue-webapp-starter`；`package.json` 的 `name` 由 `orbit-vue-starter` → `vue-webapp-starter`。
+  - GitHub 仓库 `QuincyX/webapp-vue-template` → `QuincyX/vue-webapp-starter`，本地 `origin` 同步更新；GitHub 会为旧地址保留重定向，但旧名称已被释放。
+  - 应用内产品名 `Orbit`、`orbit.*` 存储键、i18n 文案与演示账号均保持不变，本次只改项目标识。
+- 影响：本地已存在的克隆需要执行 `git remote set-url origin git@github.com:QuincyX/vue-webapp-starter.git`（旧地址由 GitHub 重定向兜底）；若有人重新占用旧仓库名，重定向失效。安装、构建、测试命令与目录结构不变。
+- 文档：本条记录；`README.md` 标题使用产品名 Orbit，无需改动。
+- 验证：`pnpm docs:check`、`pnpm format:check`、`pnpm lint`、`pnpm type-check`、`pnpm test:unit:run`、`pnpm build`；`gh repo view` 确认新仓库名，`git remote -v` 确认 origin 指向新地址。
+
 ### [Framework] 规则与规范文档去重审计
 
 - 日期：2026-11-16
