@@ -24,6 +24,16 @@
 - [ ] 跨页面复用已提升到共享层（components/composables/stores/types/utils/api）
 - [ ] 页面入口不是纯转发组件（`pnpm check:components`，已并入 `pnpm lint`）
 
+## 业务资源（新增后台模块时，见 `AGENTS.md` §4.1）
+
+- [ ] `src/types/<resource>.ts`：Zod Schema + `z.infer` 类型（含 Draft / List 变体）
+- [ ] `src/constants/<resource>.ts`：枚举、`*I18nKeys` 映射、排序权重
+- [ ] `src/data/<resource>.ts`：零配置演示数据（仅当示例需要无后端启动）
+- [ ] `src/api/<resource>.ts`：HTTP 契约 + Schema 校验
+- [ ] `src/stores/<resource>.ts`：状态、派生、持久化、错误码
+- [ ] `src/components/<resource>/`：只被本资源引用的组件
+- [ ] `src/views/<resource>/index.vue` + 路由 `meta.titleKey` + 两个语言包同名段落
+
 ## 文档更新
 
 - [ ] 业务变更：已确认 README / 截图仍然准确（如适用）
@@ -34,11 +44,7 @@
 
 ## 验证
 
-- [ ] `pnpm format:check`
-- [ ] `pnpm lint`
-- [ ] `pnpm type-check`
-- [ ] `pnpm test:unit:run`
-- [ ] `pnpm build`
+- [ ] `pnpm verify`（= `docs:check` + `format:check` + `lint` + `type-check` + `test:unit:run` + `build`）
 - [ ] `bash deploy/build.sh --skip-install`（涉及构建/发布脚本或 `vite.config.ts` 时）
 - [ ] `pnpm test:e2e`（涉及交互、路由、主题、语言或持久化时）
 - [ ] 其他：

@@ -70,6 +70,7 @@ pnpm preview
 
 | 命令                     | 用途                                                 | 是否进入 CI           |
 | ------------------------ | ---------------------------------------------------- | --------------------- |
+| `pnpm verify`            | 门禁聚合：依次跑 docs/format/lint/type/test/build    | 否（本地收尾入口）    |
 | `pnpm dev`               | Vite 开发服务器（本地鉴权适配层）                    | 否                    |
 | `pnpm dev:proxy`         | 同源代理到真实后端（`.env.proxy`）                   | 否                    |
 | `pnpm build`             | 类型检查 + 生产构建                                  | 是                    |
@@ -97,6 +98,12 @@ pnpm preview
 框架变更在本地提交前至少执行：
 
 ```bash
+pnpm verify
+```
+
+`pnpm verify` 按顺序跑下面 6 条等价命令。CI 保持分步执行（便于定位失败），不使用 `verify`，两者为超集关系：
+
+```bash
 pnpm docs:check
 pnpm format:check
 pnpm lint            # 含 check:components
@@ -111,12 +118,15 @@ pnpm build
 bash deploy/build.sh --skip-install
 ```
 
-涉及路由、交互、主题、语言或持久化时，再执行：
+涉及路由、交互、主题、语言或持久化时，先构建再跑 E2E：
 
 ```bash
+pnpm build
 $env:CI = "true"                 # PowerShell，模拟生产预览
 pnpm test:e2e
 ```
+
+`CI=true` 时 Playwright 的 webServer 是 `pnpm preview`，预览的是 `dist/`，**不会自动重建**。忘记 `pnpm build` 会让 E2E 跑上一次构建的产物：旧用例通常仍然全绿，只有新增行为才会暴露，容易被误读成"测试通过"。
 
 本地没有 Playwright Chromium 且网络受限时：
 
@@ -193,7 +203,8 @@ pnpm test:e2e
 ### 6.3 状态与持久化
 
 - Pinia Store 使用 Setup Store。
-- 持久化键必须带版本号，并写明在 [架构说明](./architecture.md#5-状态与数据所有权)。
+- **数据取用一律经 `Repository`**（[数据适配器](./data-adapters.md)）：Store 不直接读写 storage，也不直接 import Axios。首屏需要同步数据时用 `LocalRepository.read()`；需要等请求时用单飞 `hydrate()`（范式同 [health.ts](../src/stores/health.ts)）。`src/stores/` 已被 lint 禁止直接访问 storage 与 `axios`/`@/api/http`。
+- 持久化键必须带版本号，并写明在 [架构说明](./architecture.md#5-状态与数据所有权)。存储键定义在 `src/api/<resource>.ts`，Store 只 re-export 给测试，不在 Store 里新起第二个键。
 - 读取持久化数据必须通过 Schema 校验，失败要安全回退。
 - 读多写少的数据（列表、目录、字典）可用 `src/utils/localCache.ts`：键必须包含全部筛选维度、只缓存成功非空结果、读取用 `peekValidated` 校验结构、列表内容不变时用 `sameItems` 保留引用；**用户拥有的状态不得进 TTL 缓存**。
 - 阻塞式操作（退出登录、改密、支付等）用 `useLoadingStore().run()`，不要各自维护遮罩布尔值；并发/嵌套操作靠任务栈管理，不允许在页面里直接操作 DOM 遮罩。
@@ -236,6 +247,26 @@ pnpm test:e2e
 - 本地鉴权适配层使用 scrypt 哈希和随机 token，但仍是开发工具，不得作为生产服务部署。
 - 登录失败返回通用凭据错误，不暴露邮箱是否存在；注册重复邮箱例外（409）。
 - Service Worker 只预缓存构建产物，不缓存 API 响应、token 或用户数据；`/api/` 已在 `navigateFallbackDenylist` 中排除。
+
+### 6.8 自动守卫
+
+红线里 4 条由自动门禁拦截，不依赖 Review。改动守卫本身属于框架变更，需要写变更记录。
+
+| 红线                   | 守卫                                                        | 位置                                                 |
+| ---------------------- | ----------------------------------------------------------- | ---------------------------------------------------- |
+| 1 视图不直接请求后端   | ESLint `no-restricted-imports`                              | `eslint.config.ts` → `app/boundaries-no-direct-http` |
+| 3 禁止直接读写 storage | ESLint `no-restricted-globals` / `no-restricted-properties` | 同上 → `app/boundaries-no-direct-storage`            |
+| 4 界面文案走 i18n      | Vitest                                                      | `src/__tests__/i18n-keys.spec.ts`                    |
+| 6 不硬编码品牌色       | Vitest                                                      | `src/__tests__/design-tokens.spec.ts`                |
+
+覆盖边界（不要误以为全量覆盖）：
+
+- `t()` 守卫只匹配**字面量** key（`t('a.b')`）。动态 key（`t(statusI18nKeys.todo)`、``t(`tasks.${name}`)``）扫不到，靠 `src/constants/` 的显式映射与 Review。
+- 双语包 key 一致性**不在**测试里做主判断——`MessageSchema = typeof zhCN` + `enUS: MessageSchema` 已让 `pnpm type-check` 拦住缺 key；测试只做运行时兜底，防止 `as MessageSchema` 之类断言绕过。
+- 色值守卫只扫 `src/**/*.vue`；`src/assets/main.css` 是 Token 定义处，属于合法来源。`.ts` 里的色板若出现字面色值需单独评估。
+- 两条 Vitest 守卫都依赖 `src/` 目录结构。各自带一条"扫描有产出"的断言，防止目录改名或正则失效时静默通过——改守卫时不要删这两条。
+
+行内豁免：只对色值守卫开放——在目标行或上一行写 `design-token: allow` 注释并说明理由。另外三条不提供豁免；需要放宽时改守卫规则本身，并在 [变更记录](./framework-changelog.md) 里写明原因。
 
 ## 7. 依赖策略
 

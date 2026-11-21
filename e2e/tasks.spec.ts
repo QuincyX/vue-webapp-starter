@@ -47,6 +47,38 @@ test('creates, completes, and persists a task', async ({ page }) => {
   await expect(persistedRow).toContainText('已完成')
 })
 
+test('keeps list filters in the URL across reload', async ({ page }) => {
+  await page.goto('/tasks')
+  await expect(page).toHaveURL(/\/tasks$/)
+
+  await page.getByRole('button', { name: /^已完成/ }).click()
+  await expect(page).toHaveURL(/[?&]status=done/)
+
+  await page.getByLabel('排序方式').selectOption('updated')
+  await expect(page).toHaveURL(/[?&]sort=updated/)
+
+  // The URL is the source of truth, so a reload restores both controls.
+  await page.reload()
+  await expect(page.getByRole('button', { name: /^已完成/ })).toHaveAttribute(
+    'aria-pressed',
+    'true',
+  )
+  await expect(page.getByLabel('排序方式')).toHaveValue('updated')
+
+  // Clearing deletes the owned keys rather than writing defaults into the URL.
+  await page.getByRole('button', { name: '清除筛选' }).click()
+  await expect(page).toHaveURL(/\/tasks$/)
+})
+
+test('leaves query parameters it does not own untouched', async ({ page }) => {
+  await page.goto('/tasks?foo=bar')
+
+  await page.getByRole('button', { name: /^待开始/ }).click()
+
+  await expect(page).toHaveURL(/[?&]status=todo/)
+  await expect(page).toHaveURL(/[?&]foo=bar/)
+})
+
 test.describe('mobile navigation', () => {
   test.use({ viewport: { width: 390, height: 844 } })
 

@@ -25,6 +25,73 @@
 
 ---
 
+## 2026-11-21
+
+### [Framework] 清理失效与无关内容
+
+- 日期：2026-11-21
+- 变更：
+  - 移除 `docs/todo/`：只有"暂无条目"的空脚手架，starter 不带前后端协作流程。同步删除 `docs/README.md` 的索引行、事实归属行、文档规则第 7 条，以及 README 结构树中的一行。
+  - 删除 `src/api/tasks.ts` 的 `restTaskRepository` 与 `src/api/index.ts` 的对应导出：零消费方的演示导出（写法保留在 `api/tasks.ts` 注释与 [data-adapters.md §4](./data-adapters.md#4-换后端)）。
+  - `src/api/index.ts` 移除 `http` / `request` 导出：barrel 不再暴露底层设施。`eslint.config.ts` 的 `importNames` 护栏保留，防止它们被重新导出。
+  - `AGENTS.md` 移除两处 `../aiv_unity` 引用（§2、§7）：那是使用者本地的兄弟项目，不属于通用模板；§2 的业务范围约束改写为不依赖外部路径的表述。
+  - README：`taskApi` 示例（该导出已不存在，且示例本身从 barrel 导入、违反红线 1）改为 `taskRepository` 用法；"替换 Store 持久化"的过时说法改为"换适配器"；结构树补 `repository.ts` 与 `useListQuery`。
+  - `docs/README.md`：修正旧项目名 `vue-vite-starter` → `vue-webapp-starter`；事实归属表新增"Repository 接口与适配器契约"一行。
+  - `docs/architecture.md §6.1`：删除与 data-adapters.md 重复的两条编译错误说明，改为链接（事实归属要求）。
+  - `docs/framework-changelog.md` 中指向已删除 `todo/backend.md` 的链接改为纯文本，保留历史事实。
+- 影响：无行为变更、无依赖变更。删除项为空格架与零消费方导出；文档与代码重新一致。
+- 未删（有意的保留）：`docs/framework-changelog.md` 的历史条目（规则要求只追加不重写）；`docs/*.png` 的 8 张截图（README 全部在用，其中 3 张是 HTML `<img>` 引用，不是孤儿文件）；`specs/001-account-auth/`（已 Verified 的功能规格，演示 Spec Kit Lite 流程）。
+- 文档：README、`docs/README.md`、`docs/architecture.md`、`AGENTS.md`、本条记录。
+- 验证：`pnpm verify` 通过（EXIT=0；25 个文档 / 218 相对链接，删除 1 个空文件与 1 个死链）；17 个测试文件 / 106 测试通过。
+
+### [Framework] 列表筛选状态迁入 URL，新增 `useListQuery`
+
+- 日期：2026-11-21
+- 变更：
+  - 新增 [useListQuery.ts](../src/composables/useListQuery.ts)：把列表维度的筛选/排序/搜索状态投影到 `route.query`。`filters` 是一个可直接 `v-model` 的 reactive 对象，另提供 `reset()` 与 `isDirty`。
+  - 三条行为：默认值不写进 URL（干净页面没有 query）；写入用 `router.replace`（不污染返回栈）；只操作 `defaults` 里声明的键，`?edit=` / `?new=` 原样保留。URL 中不在 `allowed` 白名单内的值回退默认，不信任外部输入。
+  - `views/tasks/index.vue` 的四个本地 `ref`（status / priority / sort / search）迁入 `useListQuery`；`clearFilters` 改为调用 `resetFilters()`。搜索按 300ms 防抖写 URL，筛选按钮即时生效。
+  - 新增两条 E2E：筛选进 URL 且 reload 后恢复、清除后 URL 回到无 query；以及只写自己的键、不动外来 query。
+  - `AGENTS.md` 新增 §4.2；`docs/architecture.md` §5 加"列表筛选状态"一行；`docs/engineering.md` §4 补"E2E 前必须 build"。
+- 范围决定：**不引入表格组件**。本项目定位是通用 Vue 3 + Vite 工程模板，不是管理后台，`DataTable` / 列定义 / 分页 UI 属于后台需求。`Repository` 已预留 `ListParams` 的分页字段，接真实后端时由适配器转发，但模板本身不预先内置表格。同理不新增"三态"约定——示例数据是本地同步的，没有 loading/error 的真实证据，按 §3.2 不收。
+- 影响：`/tasks` 的筛选状态现在出现在 URL 中，可分享、刷新可重建。`clearFilters` 会连同排序一起重置（原先只清筛选）。`e2e/tasks.spec.ts` 原有断言零修改。
+- 已知取舍：搜索的 URL 写入滞后 300ms（界面即时响应）。`replace` 不产生历史记录，因此来回切换筛选不会堆满返回栈。
+- 文档：`AGENTS.md`（新增 §4.2）、`docs/architecture.md`（§5）、`docs/engineering.md`（§4 E2E 前置步骤）、本条记录。
+- 验证：`pnpm verify` 通过（17 文件 / 106 测试）；`pnpm build` 后 `pnpm test:e2e` 20 passed（新增 2 条）。
+
+### [Framework] 引入 Repository 数据接缝，任务切片迁移到适配器
+
+- 日期：2026-11-21
+- 变更：
+  - 新增 [repository.ts](../src/api/repository.ts)：`Repository<T, TInput>` 接口（`list` / `get` / `create` / `update` / `remove`）+ 三个适配器 `localRepository` / `restRepository` / `memoryRepository`。
+  - `LocalRepository` 额外暴露 `read()`（同步读，`localStorage` 是同步 API）与 `replaceAll()`（整表替换），**不进接口**：REST 适配器做不到整表替换，留在接口里会让"换后端"变成静默行为变化；放在具体类型上则变成编译错误，在调用点强制决策。
+  - `src/api/tasks.ts` 由散装 `taskApi` 改为 `taskRepository = localRepository(...)`，另导出 `restTaskRepository` 作为接后端时的成品；`TASKS_STORAGE_KEY` 移到该文件（Store 只 re-export 给测试）。
+  - `src/stores/tasks.ts` 不再直接读写 `localStorage`、不再 `watch(persist)`：写入全部经 `taskRepository`；新增单飞 `hydrate()`（范式同 `health.ts`），首屏仍用 `taskRepository.read()` 同步播种，所以没有加载闪烁。
+  - 写操作 `createTask` / `updateTask` / `toggleTask` / `removeTask` / `importTasks` / `clearTasks` / `resetDemoData` 的返回类型变为 `Promise`；`views/tasks`、`views/settings`、`views/home` 相应 await 化（`home` 的模板绑定无法 await，包一层 `handleToggle` 后 `void`）。
+  - ESLint 边界规则范围从 `views`/`components` 扩到 `src/stores/**`；红线 3 措辞改为"组件、页面与 Store"。同时用 `paths[].importNames` 堵住"从 `@/api` barrel 取 `http`/`request`"这条绕过路径——barrel 仍允许 `isApiError` 等合法成员，只有两个底层设施被点名。
+  - 新增 [data-adapters.md](./data-adapters.md)（接口、三适配器对比、绑定步骤、换后端的两处编译错误、契约测试、已知边界）；`docs/README.md` 加索引与必需文件，`docs/architecture.md` 同步 §5（数据所有权表）、§6.1（数据流图）、§7（新增 API 模块 / 新增 Store）、§9（已知约束）、§10（相关文档）。
+  - 新增 `src/__tests__/repository.spec.ts`：`runContract()` 让 local 与 memory 跑同一组断言；`restRepository` 用 axios adapter mock 覆盖分页/筛选转发、响应 Schema 校验、404 → `null`、id URL 编码。
+- 影响：**外部行为不变**——存储键 `orbit.tasks.v1`、seed 数据、导入/导出格式、E2E 断言全部零修改。接口变更仅影响直接调用 store action 的代码（需 await）。
+- 已知取舍：`localRepository` 忽略 `ListParams` 的分页与筛选（全量返回）；无乐观更新与请求缓存，后者属 Store 或 `localCache`。均写入 `data-adapters.md §6`。
+- 文档：`AGENTS.md`（红线 3 措辞、§4 守卫范围、§4.1 第 4 步）、`docs/architecture.md`、`docs/data-adapters.md`（新增）、`docs/engineering.md §6.3`、`docs/README.md`、`scripts/check-docs.mjs`、本条记录。
+- 验证：`pnpm verify` 通过（EXIT=0；17 个测试文件 / 106 个测试，新增 24 个）；`pnpm test:e2e` 18 passed；`pnpm lint` 0 warnings 0 errors。守卫新增范围做过反向验证：临时文件写入 `import axios` + `window.localStorage` 各报一条，移除后恢复全绿。
+
+### [Framework] 四条架构红线接入自动守卫，新增 `pnpm verify`
+
+- 日期：2026-11-21
+- 变更：
+  - **红线 1**（视图不直接请求后端）：新增 ESLint `app/boundaries-no-direct-http`，在 `src/views/**` 与 `src/components/**` 禁止 `import 'axios'`、`@/api/http`、`@/api/envelope`；`@/api/<resource>` 仍允许。
+  - **红线 3**（禁止直接读写 localStorage）：新增 ESLint `app/boundaries-no-direct-storage`，用 `no-restricted-globals` 拦裸标识符、`no-restricted-properties` 拦 `window.localStorage` / `globalThis.localStorage`。两条规则各管一类写法，互不覆盖（`no-restricted-syntax` 会因多条 config 相互覆盖，故意避开）。
+  - **红线 4**（界面文案走 i18n）：新增 `src/__tests__/i18n-keys.spec.ts`，扫描 `src/` 下 `t('...')` 的字面量 key 并校验能在 zh-CN 中解析。双语包 key 一致性仍由 `MessageSchema`（`export type MessageSchema = typeof zhCN` + `enUS: MessageSchema`）在编译期保证，测试只做运行时兜底，防 `as MessageSchema` 断言绕过。
+  - **红线 6**（不硬编码品牌色）：新增 `src/__tests__/design-tokens.spec.ts`，对 `src/**/*.vue` 文本扫描十六进制与 `rgb/rgba/hsl/hsla/oklch/oklab` 字面色值，支持 `design-token: allow` 行内豁免。选文本扫描而非 ESLint 的原因：`VLiteral` 在 vue-eslint-parser v10 的模板 AST 上实测不命中。
+  - 新增 `pnpm verify`：`docs:check` → `format:check` → `lint` → `type-check` → `test:unit:run` → `build`。CI 保持分步执行（便于定位失败），不改 `ci.yml`。
+  - 两条 Vitest 守卫各带一条"扫描有产出"断言（文件数、key 数下限），防止目录改名或正则失效时静默通过。
+  - `AGENTS.md §4` 补守卫映射；新增 `§4.1 业务资源切片`（七处清单，不含新脚本）；`§8` 的 6 条命令收敛为 `pnpm verify`。PR 模板同步加"业务资源"勾选组、验证块收敛为 `pnpm verify`。
+- 影响：现有运行代码零改动即通过全部四条守卫，无行为变化、无依赖变化、无构建产物差异。新增约束只对后续改动生效：`views`/`components` 不得 import axios 与 `@/api/http|envelope`，不得直接读写 storage，`.vue` 中不得出现字面色值。
+- 覆盖边界：`t()` 守卫只匹配字面量 key，动态 key 靠 `src/constants/` 的显式映射；色值守卫只扫 `.vue`，`main.css` 是 Token 定义处。
+- 文档：`AGENTS.md`（§4 守卫映射、§4.1、§8）、`docs/engineering.md`（§3 命令表、§4 门禁、新增 §6.8 自动守卫）、`.github/pull_request_template.md`、本条记录。
+- 验证：`pnpm verify` 通过（EXIT=0；16 个测试文件 / 82 个测试，新增 5 个）；`pnpm docs:check`（25 文件 / 205 相对链接）；`pnpm lint`（oxlint 0 warnings 0 errors，ESLint 无输出）；`pnpm test:e2e`（18 passed）。四条守卫均做过反向验证：插入 `t('__probe.missingKey')`、`class="bg-[#ff0000]"`、`import axios`、`window.localStorage` 后分别报错，移除后恢复全绿。
+
 ## 2026-11-16
 
 ### [Framework] 依赖补齐到当前最新补丁/次要版本
@@ -184,7 +251,7 @@
 
 - 日期：2026-11-15
 - 变更：
-  - 新增 [docs/todo/backend.md](./todo/backend.md)：稳定编号（`B1`…）、状态、当前前端行为、期望后端行为、关闭结论；关闭条目保留编号，不复用。
+  - 新增 `docs/todo/backend.md`：稳定编号（`B1`…）、状态、当前前端行为、期望后端行为、关闭结论；关闭条目保留编号，不复用。（该文件已于 2026-11-21 移除，见本日"清理失效与无关内容"记录。）
   - [docs/README.md](./README.md) 增加文档索引、事实归属与治理规则各一行。
   - 本文件的记录模板新增 `替代：<旧条目标题>` 字段；推翻旧决策时写替代关系，旧记录不删除。
 - 影响：跨团队待办有了单一来源，避免同一个接口问题在 PR、聊天和规格里反复出现。

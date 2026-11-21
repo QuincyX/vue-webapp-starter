@@ -30,8 +30,9 @@ describe('task store', () => {
     vi.useRealTimers()
   })
 
-  it('hydrates the demo tasks on first visit', () => {
+  it('hydrates the demo tasks on first visit', async () => {
     const store = useTaskStore()
+    await store.hydrate()
 
     expect(store.tasks).toHaveLength(createSeedTasks().length)
     expect(store.stats.total).toBe(8)
@@ -41,9 +42,25 @@ describe('task store', () => {
     expect(store.weeklyActivity).toHaveLength(7)
   })
 
+  it('seeds synchronously so the first paint has data', () => {
+    // The local adapter reads `localStorage` synchronously; this asserts the store does
+    // not start empty and then flash into content.
+    const store = useTaskStore()
+
+    expect(store.tasks).toHaveLength(createSeedTasks().length)
+  })
+
+  it('reuses one in-flight hydration', async () => {
+    const store = useTaskStore()
+
+    await Promise.all([store.hydrate(), store.hydrate()])
+
+    expect(store.tasks).toHaveLength(createSeedTasks().length)
+  })
+
   it('creates a task and persists it to localStorage', async () => {
     const store = useTaskStore()
-    const created = store.createTask(makeDraft({ dueDate: '2026-10-28' }))
+    const created = await store.createTask(makeDraft({ dueDate: '2026-10-28' }))
 
     expect(created.id).toBeTruthy()
     expect(store.tasks).toHaveLength(9)
@@ -63,7 +80,7 @@ describe('task store', () => {
     expect(target).toBeDefined()
     if (!target) return
 
-    store.toggleTask(target.id)
+    await store.toggleTask(target.id)
 
     expect(store.tasks.find((task) => task.id === target.id)?.status).toBe('done')
     expect(store.stats.completionRate).toBe(50)
@@ -72,36 +89,37 @@ describe('task store', () => {
     expect(localStorage.getItem(TASKS_STORAGE_KEY)).toContain('"status":"done"')
   })
 
-  it('removes a task', () => {
+  it('removes a task', async () => {
     const store = useTaskStore()
     const target = store.tasks[0]
 
     expect(target).toBeDefined()
     if (!target) return
 
-    store.removeTask(target.id)
+    await store.removeTask(target.id)
+
     expect(store.tasks).toHaveLength(7)
     expect(store.tasks.some((task) => task.id === target.id)).toBe(false)
   })
 
-  it('round-trips exported data through the import boundary', () => {
+  it('round-trips exported data through the import boundary', async () => {
     const store = useTaskStore()
     const exported = store.exportTasks()
 
-    store.clearTasks()
+    await store.clearTasks()
     expect(store.tasks).toHaveLength(0)
 
-    const count = store.importTasks(JSON.parse(exported))
+    const count = await store.importTasks(JSON.parse(exported))
 
     expect(count).toBe(8)
     expect(store.tasks).toHaveLength(8)
   })
 
-  it('rejects malformed imported data', () => {
+  it('rejects malformed imported data', async () => {
     const store = useTaskStore()
     const task = { ...store.tasks[0], dueDate: 'not-a-date' }
 
-    expect(() => store.importTasks([task])).toThrow(ZodError)
+    await expect(store.importTasks([task])).rejects.toThrow(ZodError)
     expect(store.tasks).toHaveLength(8)
   })
 
@@ -114,10 +132,10 @@ describe('task store', () => {
     expect(sorted.slice(firstCompletedIndex).every((task) => task.status === 'done')).toBe(true)
   })
 
-  it('resets the demo tasks', () => {
+  it('resets the demo tasks', async () => {
     const store = useTaskStore()
-    store.clearTasks()
-    store.resetDemoData()
+    await store.clearTasks()
+    await store.resetDemoData()
 
     expect(store.tasks).toHaveLength(8)
     expect(store.stats.done).toBe(3)

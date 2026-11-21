@@ -8,12 +8,13 @@ import BaseModal from '@/components/ui/BaseModal.vue'
 import TaskFormModal from '@/components/tasks/TaskFormModal.vue'
 import TaskListItem from '@/components/tasks/TaskListItem.vue'
 import { priorityOptions, priorityRank, statusI18nKeys } from '@/constants/task'
+import { useListQuery } from '@/composables/useListQuery'
 import { useToast } from '@/composables/useToast'
 import { compareTasks, useTaskStore } from '@/stores/tasks'
-import type { Task, TaskDraft, TaskPriority, TaskStatus } from '@/types/task'
+import type { Task, TaskDraft, TaskStatus } from '@/types/task'
+import { TASK_PRIORITIES, TASK_STATUSES } from '@/types/task'
 
 type StatusFilter = 'all' | TaskStatus
-type SortOption = 'due' | 'priority' | 'updated'
 
 const { t } = useI18n()
 const route = useRoute()
@@ -21,10 +22,17 @@ const router = useRouter()
 const taskStore = useTaskStore()
 const { toast } = useToast()
 
-const statusFilter = ref<StatusFilter>('all')
-const priorityFilter = ref<'all' | TaskPriority>('all')
-const sortBy = ref<SortOption>('due')
-const searchQuery = ref('')
+// Filter state lives in the URL, so a filtered view survives reload and can be shared.
+// `?edit=` / `?new=` are not owned by this composable and stay untouched.
+const { filters, reset: resetFilters } = useListQuery({
+  defaults: { status: 'all', priority: 'all', sort: 'due', search: '' },
+  allowed: {
+    status: ['all', ...TASK_STATUSES],
+    priority: ['all', ...TASK_PRIORITIES],
+    sort: ['due', 'priority', 'updated'],
+  },
+  debounceMs: 300,
+})
 
 const showForm = ref(false)
 const editingTask = ref<Task | null>(null)
@@ -42,11 +50,11 @@ const statusFilters = computed<{ value: StatusFilter; label: string; count: numb
 ])
 
 const filteredTasks = computed(() => {
-  const normalizedQuery = searchQuery.value.trim().toLowerCase()
+  const normalizedQuery = filters.search.trim().toLowerCase()
 
   const result = taskStore.tasks.filter((task) => {
-    if (statusFilter.value !== 'all' && task.status !== statusFilter.value) return false
-    if (priorityFilter.value !== 'all' && task.priority !== priorityFilter.value) return false
+    if (filters.status !== 'all' && task.status !== filters.status) return false
+    if (filters.priority !== 'all' && task.priority !== filters.priority) return false
     if (!normalizedQuery) return true
 
     const searchable = [task.title, task.description, ...task.tags].join(' ').toLowerCase()
@@ -54,11 +62,11 @@ const filteredTasks = computed(() => {
   })
 
   return result.sort((left, right) => {
-    if (sortBy.value === 'priority') {
+    if (filters.sort === 'priority') {
       return priorityRank[left.priority] - priorityRank[right.priority] || compareTasks(left, right)
     }
 
-    if (sortBy.value === 'updated') {
+    if (filters.sort === 'updated') {
       return right.updatedAt.localeCompare(left.updatedAt)
     }
 
@@ -67,10 +75,7 @@ const filteredTasks = computed(() => {
 })
 
 const hasActiveFilters = computed(
-  () =>
-    statusFilter.value !== 'all' ||
-    priorityFilter.value !== 'all' ||
-    searchQuery.value.trim().length > 0,
+  () => filters.status !== 'all' || filters.priority !== 'all' || filters.search.trim().length > 0,
 )
 
 function openCreate(): void {
@@ -88,12 +93,12 @@ function closeForm(): void {
   editingTask.value = null
 }
 
-function handleSave(draft: TaskDraft): void {
+async function handleSave(draft: TaskDraft): Promise<void> {
   if (editingTask.value) {
-    taskStore.updateTask(editingTask.value.id, draft)
+    await taskStore.updateTask(editingTask.value.id, draft)
     toast({ title: t('tasks.toastUpdated'), variant: 'success' })
   } else {
-    taskStore.createTask(draft)
+    await taskStore.createTask(draft)
     toast({
       title: t('tasks.toastCreated'),
       description: t('tasks.toastCreatedDescription'),
@@ -104,19 +109,19 @@ function handleSave(draft: TaskDraft): void {
   closeForm()
 }
 
-function handleToggle(id: string): void {
-  taskStore.toggleTask(id)
+async function handleToggle(id: string): Promise<void> {
+  await taskStore.toggleTask(id)
 }
 
 function requestDelete(task: Task): void {
   taskToDelete.value = task
 }
 
-function confirmDelete(): void {
+async function confirmDelete(): Promise<void> {
   if (!taskToDelete.value) return
 
   const title = taskToDelete.value.title
-  taskStore.removeTask(taskToDelete.value.id)
+  await taskStore.removeTask(taskToDelete.value.id)
   taskToDelete.value = null
   toast({
     title: t('tasks.toastDeleted'),
@@ -126,9 +131,7 @@ function confirmDelete(): void {
 }
 
 function clearFilters(): void {
-  statusFilter.value = 'all'
-  priorityFilter.value = 'all'
-  searchQuery.value = ''
+  resetFilters()
 }
 
 function removeQueryKey(key: string): void {
@@ -154,7 +157,11 @@ function consumeRouteQuery(): void {
   }
 }
 
-onMounted(consumeRouteQuery)
+onMounted(async () => {
+  // Deep links (`?edit=` / `?new=`) need the collection before they can resolve an id.
+  await taskStore.hydrate()
+  consumeRouteQuery()
+})
 watch(() => route.fullPath, consumeRouteQuery)
 </script>
 
@@ -198,20 +205,20 @@ watch(() => route.fullPath, consumeRouteQuery)
               v-for="filter in statusFilters"
               :key="filter.value"
               type="button"
-              :aria-pressed="statusFilter === filter.value"
+              :aria-pressed="filters.status === filter.value"
               class="inline-flex h-8 shrink-0 items-center gap-1.5 rounded-lg px-2.5 text-xs font-medium transition-colors focus-visible:ring-2 focus-visible:ring-ring"
               :class="
-                statusFilter === filter.value
+                filters.status === filter.value
                   ? 'bg-card text-foreground shadow-sm'
                   : 'text-muted-foreground hover:text-foreground'
               "
-              @click="statusFilter = filter.value"
+              @click="filters.status = filter.value"
             >
               {{ filter.label }}
               <span
                 class="min-w-4 rounded-full px-1 text-center text-[10px]"
                 :class="
-                  statusFilter === filter.value
+                  filters.status === filter.value
                     ? 'bg-primary/10 text-primary'
                     : 'text-muted-foreground/70'
                 "
@@ -229,7 +236,7 @@ watch(() => route.fullPath, consumeRouteQuery)
                 aria-hidden="true"
               />
               <input
-                v-model="searchQuery"
+                v-model="filters.search"
                 type="search"
                 class="input h-10 pl-9"
                 :placeholder="t('tasks.searchPlaceholder')"
@@ -237,7 +244,7 @@ watch(() => route.fullPath, consumeRouteQuery)
             </label>
 
             <select
-              v-model="priorityFilter"
+              v-model="filters.priority"
               class="select h-10 w-full py-0 sm:w-36"
               :aria-label="t('tasks.priorityFilterLabel')"
             >
@@ -248,7 +255,7 @@ watch(() => route.fullPath, consumeRouteQuery)
             </select>
 
             <select
-              v-model="sortBy"
+              v-model="filters.sort"
               class="select h-10 w-full py-0 sm:w-32"
               :aria-label="t('tasks.sortLabel')"
             >

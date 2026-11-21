@@ -10,6 +10,7 @@ const requiredDocuments = [
   'README.md',
   'docs/README.md',
   'docs/architecture.md',
+  'docs/data-adapters.md',
   'docs/engineering.md',
   'docs/framework-changelog.md',
   'specs/README.md',

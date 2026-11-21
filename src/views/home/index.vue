@@ -93,6 +93,12 @@ const priorityRows = computed(() =>
 function openTask(task: Task): void {
   router.push({ name: 'tasks', query: { edit: task.id } })
 }
+
+// `toggleTask` is async (it goes through the repository); the template binding cannot
+// await, so fire and forget here rather than letting a rejected promise escape.
+function handleToggle(id: string): void {
+  void taskStore.toggleTask(id)
+}
 </script>
 
 <template>
@@ -248,7 +254,7 @@ function openTask(task: Task): void {
               :task="task"
               dense
               :show-actions="false"
-              @toggle="taskStore.toggleTask"
+              @toggle="handleToggle"
               @edit="openTask"
             />
           </div>

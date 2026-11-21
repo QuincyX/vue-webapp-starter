@@ -27,7 +27,7 @@
 这是一个**通用 Vue 3 + Vite + TypeScript 工程模板**，不是某个具体产品的代码仓库。
 
 - 任务工作台是用于展示工程能力的业务示例，不是产品需求的边界；不要把 starter 改造成重业务产品，除非用户明确要求。
-- 不要引入兄弟目录 `../aiv_unity` 的业务概念（模板、生成任务、积分、支付）；已确认的 [001 账号模块](./specs/001-account-auth/spec.md) 是唯一例外，后续扩展仍需用户明确要求。
+- 业务范围以示例任务领域与已确认的 [001 账号模块](./specs/001-account-auth/spec.md) 为限；扩展业务范围需要用户明确要求。
 - 新增能力优先沉淀为可复用的框架能力，而不是某个页面的临时补丁。
 - PWA 安装与服务端离线外壳已是内置框架能力（[architecture.md §6.8](./docs/architecture.md#68-pwaservice-worker-与安装)），不要为单个示例再建第二套 manifest 或 Service Worker。
 
@@ -72,9 +72,11 @@
 
 以下 10 条不可协商，违反其中任何一条都视为未完成。实现约定见 [engineering.md §6](./docs/engineering.md#6-编码约束)。
 
+其中 4 条已由自动门禁拦截，不依赖 Review：红线 1、3 在 `src/views/**`、`src/components/**`、`src/stores/**` 三个范围内由 `eslint.config.ts` 的 `no-restricted-imports` / `no-restricted-globals` / `no-restricted-properties` 拦截（禁 `axios`、`@/api/http`、`@/api/envelope` 与直接读写 storage）；红线 4 由 `src/__tests__/i18n-keys.spec.ts` 拦截（双语包 key 一致由 `MessageSchema` 在编译期保证，测试只管 `t()` 字面量 key 能否解析）；红线 6 由 `src/__tests__/design-tokens.spec.ts` 拦截。其余 5 条仍靠 Review。
+
 1. **视图不直接请求后端**，HTTP 只经 `src/api/`。
 2. **数据边界必须过 Zod**：外部响应与导入数据用 `src/types/` 的 Schema 校验，用 `z.infer` 推导公共类型，不复制同结构类型，不把 `unknown` 断言成业务类型。
-3. **禁止组件/页面直接读写 localStorage**，持久化归 Store、`src/api/token.ts`、i18n 与主题模块。
+3. **禁止组件、页面与 Store 直接读写 localStorage**，持久化归 `Repository` 适配器、`src/api/token.ts`、i18n 与主题模块。
 4. **界面文案一律走 i18n**，改文案必须同时改 `zh-CN.ts` 与 `en-US.ts`。
 5. **路由必须保留 `meta.titleKey`**，页面组件默认懒加载。
 6. **共享 UI 用 Design Token 与既有组件模式**，不硬编码品牌色或一次性样式。
@@ -82,6 +84,37 @@
 8. **页面目录边界**：`/foo` → `src/views/foo/index.vue`（根 `/` 用 `home/`，404 用 `not-found/`）；页面私有的子组件、composables、数据、类型与资源只能被本页面引用；跨页面复用先提升到 `src/components|composables|stores|types|utils/`；路由只引用页面的 `index.vue`。
 9. **禁止纯转发组件**：`.vue` 文件不能只是"导入同目录组件 + 原样渲染"。子组件必须由页面模板编排或承担独立职责；`pnpm check:components` 拦截（已并入 `pnpm lint`）。
 10. **`v-html` 不得用于渲染不可信内容**（lint 已禁止）。
+
+### 4.1 业务资源切片
+
+新增一个业务资源（一个新的后台模块）时补齐七处，顺序即依赖方向，禁止反向 import：
+
+| 步骤 | 位置                             | 职责                                                      |
+| ---- | -------------------------------- | --------------------------------------------------------- |
+| 1    | `src/types/<resource>.ts`        | Zod Schema + `z.infer` 类型（含 Draft / List 变体）       |
+| 2    | `src/constants/<resource>.ts`    | 枚举、`*I18nKeys` 映射、排序权重                          |
+| 3    | `src/data/<resource>.ts`         | 零配置演示数据（可选；仅当示例需要无后端启动）            |
+| 4    | `src/api/<resource>.ts`          | Repository 绑定：适配器 + Schema + 存储键；换后端只改这里 |
+| 5    | `src/stores/<resource>.ts`       | Setup Store：状态、派生、持久化、错误码                   |
+| 6    | `src/components/<resource>/`     | 只被本资源引用的组件（表单、行、徽标）                    |
+| 7    | `src/views/<resource>/index.vue` | 页面；路由只引用 `index.vue`                              |
+
+配套两处：`src/router/index.ts` 一条带 `meta.titleKey` 的路由，以及两个语言包的同名段落。
+
+第 4 步不是"写几个请求函数"，而是绑一个 `Repository` 适配器：本地演示用 `localRepository`、接真实后端用 `restRepository`、测试用 `memoryRepository`。Store 只依赖接口，所以换后端只改这一处初始化；契约与迁移步骤见 [数据适配器](./docs/data-adapters.md)。
+
+漏掉 1–3 不会被 `type-check` 发现，只表现为"示例跑不起来"，因此这七处是 Review 与 `specs/NNN-*/plan.md` 的检查项——**不新增脚本**，参照实现是 `tasks` 切片。
+
+### 4.2 列表与筛选状态
+
+带筛选、排序或搜索的列表页，这些状态必须存 URL，用 [`useListQuery()`](./src/composables/useListQuery.ts) 读写，不得用 `ref`——`ref` 刷新即丢、不可分享，而 URL 已经是本项目的深链载体（`?edit=`、`?new=`）。
+
+- 默认值不写进 URL：只有非默认值才出现，页面干净时 URL 没有 query。
+- 写入用 `router.replace`，不污染返回栈；文本输入传 `debounceMs` 防抖。
+- 只操作 `defaults` 里声明的键，深链参数（`?edit=`、`?new=`）原样保留。
+- URL 中不在 `allowed` 白名单里的值回退默认，不信任外部输入。
+
+验证：`e2e/tasks.spec.ts` 的「keeps list filters in the URL across reload」与「leaves query parameters it does not own untouched」。
 
 ## 5. 工具链
 
@@ -116,7 +149,7 @@
 
 ### 不要做
 
-- 不要改 `../aiv_unity` 或与本项目无关的目录。
+- 不要改与本项目无关的目录。
 - 不要为通过检查而删测试、放宽规则或加无依据的忽略项。
 - 不要在没有用户要求时启动长期开发服务器（浏览器验证用 `pnpm test:e2e` 自管的服务器）、执行 git commit/push 或改写历史。
 - 不要把"文档稍后补"当作可接受的交付状态。
@@ -127,7 +160,7 @@
 
 - [ ] 实现符合架构边界与工程约束
 - [ ] 同一次变更更新了 `docs/framework-changelog.md` 和矩阵要求的文档
-- [ ] `pnpm docs:check`、`pnpm format:check`、`pnpm lint`、`pnpm type-check`、`pnpm test:unit:run`、`pnpm build` 通过
+- [ ] `pnpm verify` 通过（= `docs:check` → `format:check` → `lint` → `type-check` → `test:unit:run` → `build`；展开说明见 [engineering.md §4](./docs/engineering.md#4-完整质量门禁)）
 - [ ] 涉及 `vite.config.ts`、`deploy/` 或发布脚本时，`bash deploy/build.sh --skip-install` 通过
 - [ ] 涉及交互/路由/主题/语言/持久化时，`pnpm test:e2e` 通过
 - [ ] 非平凡业务功能有 spec/plan/tasks，`verification.md` 为 `Verified`

@@ -109,20 +109,22 @@
 
 ## 5. 状态与数据所有权
 
-| 数据               | 所有者                                              | 持久化键                | 说明                                       |
-| ------------------ | --------------------------------------------------- | ----------------------- | ------------------------------------------ |
-| 任务列表、筛选统计 | [tasks store](../src/stores/tasks.ts)               | `orbit.tasks.v1`        | 启动时 Zod 校验，损坏则回退示例数据        |
-| 当前账号           | [auth store](../src/stores/auth.ts)                 | 无（内存）              | 通过 `/auth/me` 恢复；由 API 提供          |
-| Access Token       | [token.ts](../src/api/token.ts)                     | `orbit.access-token.v1` | 仅示例；生产建议 HttpOnly Cookie           |
-| 主题模式           | [useTheme](../src/composables/useTheme.ts)          | `orbit.theme.v1`        | `createGlobalState` 单例                   |
-| 界面语言           | [i18n](../src/i18n/index.ts)                        | `orbit.locale.v1`       | `html lang` 同步更新                       |
-| Toast              | [useToast](../src/composables/useToast.ts)          | 无                      | 内存中的全局单例                           |
-| 全局阻塞 loading   | [loading store](../src/stores/loading.ts)           | 无（内存）              | 任务栈；并发操作各自持有 id                |
-| 登录弹窗           | [login-dialog store](../src/stores/login-dialog.ts) | 无（内存）              | 原因 + 登录后要续接的动作；关闭即清空      |
-| 后端连接状态       | [health store](../src/stores/health.ts)             | 无（内存）              | 远端 Store 范式：单飞请求 + errorCode      |
-| 读多写少数据缓存   | [localCache](../src/utils/localCache.ts)            | `orbit.cache.v1.*`      | 内存 + localStorage，TTL 默认 30 分钟      |
-| 路由状态           | Vue Router                                          | 浏览器 history          | `titleKey` 只存文案 key                    |
-| 服务端账号数据     | API 层                                              | `.data/auth-users.json` | 仅本地开发适配层；生产由真实后端数据库负责 |
+| 数据               | 所有者                                              | 持久化键                | 说明                                                                                  |
+| ------------------ | --------------------------------------------------- | ----------------------- | ------------------------------------------------------------------------------------- |
+| 任务列表、筛选统计 | [tasks store](../src/stores/tasks.ts)               | `orbit.tasks.v1`        | 经 `taskRepository`（local 适配器）读写；损坏则回退示例数据                           |
+| 数据接入方式       | [api/repository.ts](../src/api/repository.ts)       | 无                      | `Repository<T, TInput>` 接缝；local / rest / memory 三适配器                          |
+| 当前账号           | [auth store](../src/stores/auth.ts)                 | 无（内存）              | 通过 `/auth/me` 恢复；由 API 提供                                                     |
+| Access Token       | [token.ts](../src/api/token.ts)                     | `orbit.access-token.v1` | 仅示例；生产建议 HttpOnly Cookie                                                      |
+| 主题模式           | [useTheme](../src/composables/useTheme.ts)          | `orbit.theme.v1`        | `createGlobalState` 单例                                                              |
+| 界面语言           | [i18n](../src/i18n/index.ts)                        | `orbit.locale.v1`       | `html lang` 同步更新                                                                  |
+| Toast              | [useToast](../src/composables/useToast.ts)          | 无                      | 内存中的全局单例                                                                      |
+| 全局阻塞 loading   | [loading store](../src/stores/loading.ts)           | 无（内存）              | 任务栈；并发操作各自持有 id                                                           |
+| 登录弹窗           | [login-dialog store](../src/stores/login-dialog.ts) | 无（内存）              | 原因 + 登录后要续接的动作；关闭即清空                                                 |
+| 后端连接状态       | [health store](../src/stores/health.ts)             | 无（内存）              | 远端 Store 范式：单飞请求 + errorCode                                                 |
+| 读多写少数据缓存   | [localCache](../src/utils/localCache.ts)            | `orbit.cache.v1.*`      | 内存 + localStorage，TTL 默认 30 分钟；**内置工具，示例未使用**，接后端列表时按需接入 |
+| 路由状态           | Vue Router                                          | 浏览器 history          | `titleKey` 只存文案 key                                                               |
+| 列表筛选状态       | [useListQuery](../src/composables/useListQuery.ts)  | 浏览器 history（query） | 默认值不写入 URL；只操作自己声明的键，深链参数原样保留                                |
+| 服务端账号数据     | API 层                                              | `.data/auth-users.json` | 仅本地开发适配层；生产由真实后端数据库负责                                            |
 
 规则：**业务持久化必须在 Store 或明确的基础设施模块中完成，视图不得直接操作业务存储。认证状态只以 Auth Store 为唯一读入口。**
 
@@ -133,13 +135,18 @@
 ```text
 TasksView / Dashboard
   → useTaskStore action
+  → taskRepository（Repository 适配器，默认 localRepository）
+      - 读：read() 同步播种首屏；list() 供 hydrate() 单飞补读
+      - 写：create / update / remove（replaceAll 仅本地演示工具使用）
+  → localStorage（Zod 校验 + 失败回退示例数据）
   → reactive task[]
-  → watch(deep) 写 localStorage
   → 统计 / 排序 / 周趋势 computed
   → 页面重新渲染
 ```
 
-读取时经过 `taskListSchema.safeParse`。导入 JSON 也经过同一 Schema，保证本地数据、导入数据和表单数据使用一致边界。
+读取与导入都经过 `taskListSchema`，保证本地数据、导入数据和表单数据使用一致边界。
+
+Store 不再直接读写 storage：写入统一经 `taskRepository`，Store 只维护响应式副本。换后端只改 [api/tasks.ts](../src/api/tasks.ts) 里 `taskRepository` 的初始化（`localRepository` → `restRepository`），会暴露两处**编译错误**而不是运行时故障——具体是哪两处、怎么处理，见 [数据适配器 §4](./data-adapters.md#4-换后端)。
 
 ### 6.2 远程请求
 
@@ -360,15 +367,16 @@ src/views/
 3. 统一抛出 `ApiError`，不要返回 AxiosResponse。
 4. 需要新的错误语义时扩展 `ApiErrorCode`，同时更新 [errors.ts](../src/api/errors.ts)、`apiError.*` 双语语言包、本文和变更记录。
 5. 会话失效规则变化时只改 `http.ts` 的 `shouldClearSession()`；不要新增第二处 token 清理。
+6. **资源型模块优先暴露 `Repository`，而不是散装函数**：按 [数据适配器](./data-adapters.md) 绑一个适配器（本地演示用 `localRepository`，接真实后端用 `restRepository`，测试用 `memoryRepository`），让 Store 依赖接口而不是实现。非资源型（健康探针、鉴权、上传）仍按上面五条写成普通函数模块。
 
 ### 新增 Store
 
 1. 业务状态放 `src/stores/`，使用 Setup Store。
 2. 派生值用 `computed`，派生统计不要写进组件重复计算。
-3. 持久化必须显式定义存储键、Schema 和失败回退。
+3. 持久化与远端取数一律经 `Repository`，Store 不直接碰 `localStorage`、`fetch` 或 Axios（见 [数据适配器](./data-adapters.md)）。需要同步首屏时用 `LocalRepository.read()`；需要等请求时用单飞 `hydrate()`。
 4. 跨语言的展示文案不进入 Store，由组件通过 i18n 生成。
 5. 远端 Store 以 [health.ts](../src/stores/health.ts) 为最小范式：单飞请求、只暴露 `errorCode`、不持久化没有意义的数据；列表类再加请求竞态与缓存优先（见 6.3）。
-6. 分页/筛选状态属于 Store；滚动位置、定时器、`IntersectionObserver` 属于页面。
+6. 分页/筛选状态在引入 `useListQuery` 之前仍由页面持有；滚动位置、定时器、`IntersectionObserver` 始终属于页面。
 
 ### 新增共享 UI
 
@@ -402,18 +410,18 @@ src/views/
 
 ## 9. 已知约束与技术债
 
-| 约束                      | 影响                               | 处理方式                                                 |
-| ------------------------- | ---------------------------------- | -------------------------------------------------------- |
-| TypeScript 7 + TS6 兼容层 | `tsc` 与 `vue-tsc` 使用不同 API    | 保留别名；上游支持 TS7 后再统一                          |
-| 无 SSR                    | 所有代码可假设浏览器环境           | 不在服务端运行                                           |
-| 任务数据仅本地            | 多设备/多用户不共享                | 接后端时替换 Store 持久化                                |
-| 本地鉴权适配层            | 仅开发/预览/E2E 可用，不是生产服务 | 生产实现同一 `/api/auth/*` 契约与数据库                  |
-| Token 存 localStorage     | 生产安全性不足                     | 生产改 HttpOnly Cookie + CSRF 策略                       |
-| 无邮箱验证/找回密码       | 不能直接作为完整生产账号系统       | 需要时作为独立功能规格引入                               |
-| 语言包同步加载            | 两种语言都进入首屏 chunk           | 语言增多时再按需加载                                     |
-| PWA 预缓存应用外壳        | 发版后首屏可能短暂命中旧 chunk     | `autoUpdate` + `no-cache` 入口文件，见 deploy/publish.sh |
-| iOS 无安装 API            | 只能引导「添加到主屏幕」           | 保持手动提示，不做强制弹窗                               |
-| 无服务端渲染              | SEO 能力有限                       | 如需要另立架构变更                                       |
+| 约束                      | 影响                               | 处理方式                                                                       |
+| ------------------------- | ---------------------------------- | ------------------------------------------------------------------------------ |
+| TypeScript 7 + TS6 兼容层 | `tsc` 与 `vue-tsc` 使用不同 API    | 保留别名；上游支持 TS7 后再统一                                                |
+| 无 SSR                    | 所有代码可假设浏览器环境           | 不在服务端运行                                                                 |
+| 任务数据仅本地            | 多设备/多用户不共享                | 把 `taskRepository` 换成 `restRepository`，见 [数据适配器](./data-adapters.md) |
+| 本地鉴权适配层            | 仅开发/预览/E2E 可用，不是生产服务 | 生产实现同一 `/api/auth/*` 契约与数据库                                        |
+| Token 存 localStorage     | 生产安全性不足                     | 生产改 HttpOnly Cookie + CSRF 策略                                             |
+| 无邮箱验证/找回密码       | 不能直接作为完整生产账号系统       | 需要时作为独立功能规格引入                                                     |
+| 语言包同步加载            | 两种语言都进入首屏 chunk           | 语言增多时再按需加载                                                           |
+| PWA 预缓存应用外壳        | 发版后首屏可能短暂命中旧 chunk     | `autoUpdate` + `no-cache` 入口文件，见 deploy/publish.sh                       |
+| iOS 无安装 API            | 只能引导「添加到主屏幕」           | 保持手动提示，不做强制弹窗                                                     |
+| 无服务端渲染              | SEO 能力有限                       | 如需要另立架构变更                                                             |
 
 这些是当前有意的取舍，不是隐式 bug。修改任何一项都必须按 [AGENTS.md](../AGENTS.md) 的矩阵更新文档。
 
@@ -421,6 +429,7 @@ src/views/
 
 - [功能规格与流程](../specs/README.md)
 - [账号模块规格](../specs/001-account-auth/spec.md)
+- [数据适配器](./data-adapters.md)
 - [工程说明与约束](./engineering.md)
 - [框架变更记录](./framework-changelog.md)
 - [Agent 工程指南](../AGENTS.md)

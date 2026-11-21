@@ -7,7 +7,14 @@ export {
   type Envelope,
   type EnvelopeOptions,
 } from './envelope'
-export { http, request } from './http'
 export { clearAccessToken, getAccessToken, setAccessToken } from './token'
 export { systemApi, type HealthResponse } from './system'
-export { taskApi } from './tasks'
+export { TASKS_STORAGE_KEY, taskRepository } from './tasks'
+export {
+  localRepository,
+  memoryRepository,
+  restRepository,
+  type ListParams,
+  type ListResult,
+  type Repository,
+} from './repository'

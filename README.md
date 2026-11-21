@@ -70,7 +70,7 @@ pnpm preview
 - **全局阻塞 loading**：任务栈管理的整页遮罩，供退出登录、改密等不可重复提交的操作使用，并发/嵌套不会互相提前关闭。
 - **首屏骨架**：`index.html` 内联静态骨架，FCP 不等入口 bundle；Service Worker 延后到 `load` 后的空闲时注册，预缓存不与首屏抢带宽。
 - **总览仪表盘**：任务总量、完成率、逾期数量、近 7 天完成趋势、优先级分布与最近动态。
-- **任务管理**：创建、编辑、完成、删除，支持状态/优先级筛选、关键词搜索和多种排序。
+- **任务管理**：创建、编辑、完成、删除，支持状态/优先级筛选、关键词搜索和多种排序；筛选与排序状态保存在 URL 中，可分享、刷新可重建。
 - **中英文 i18n**：完整界面文案切换、持久化语言偏好、`html lang`、文档标题、日期/数字格式与请求头同步更新。
 - **Axios 请求层**：统一实例、`baseURL`/超时配置、鉴权头、请求 ID、`Accept-Language`、会话失效集中判定与错误归一化。
 - **信封接口与缓存**：`{ code, data, message }` 类后端的解包适配器（含业务错误码），以及内存 + `localStorage` 的 TTL 缓存工具。
@@ -168,10 +168,10 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 ├── docs/
 │   ├── README.md               # 文档索引与治理规则
 │   ├── architecture.md         # 分层、数据流、模块边界
+│   ├── data-adapters.md        # Repository 接口、三适配器、换后端契约
 │   ├── engineering.md          # 环境、命令、质量门禁、约束
 │   ├── framework-changelog.md  # 框架变更记录
 │   ├── components/             # 共享交互组件的行为契约（data-slot/键盘/ARIA）
-│   ├── todo/backend.md         # 等待后端配合的开放事项（稳定编号）
 │   └── *.png                   # README 截图
 ├── e2e/
 │   ├── helpers.ts              # 登录、清理会话、横向溢出断言
@@ -198,13 +198,14 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 ├── src/
 │   ├── __tests__/              # Vitest 测试与 setup
 │   ├── api/
+│   │   ├── repository.ts       # Repository 接缝：local / rest / memory 三适配器
 │   │   ├── http.ts             # Axios 实例、拦截器、会话失效判定
 │   │   ├── errors.ts           # ApiError 与错误归一化
 │   │   ├── envelope.ts         # { code, data, message } 信封解包
 │   │   ├── token.ts            # Access Token 读写
 │   │   ├── auth.ts             # 注册/登录/会话/资料/密码
 │   │   ├── system.ts           # /health 健康检查
-│   │   └── tasks.ts            # 任务 API 契约示例
+│   │   └── tasks.ts            # 任务 Repository 绑定（换后端只改这里）
 │   ├── assets/main.css         # Tailwind 入口、设计 Token、动效
 │   ├── components/
 │   │   ├── auth/               # 就地登录弹窗
@@ -212,7 +213,7 @@ pnpm type-check            # TS7 检查 .ts / 配置，vue-tsc 使用 TS6 API �
 │   │   ├── layout/             # 侧边栏、顶栏
 │   │   ├── tasks/              # 任务表单、列表项、徽标
 │   │   └── ui/                 # Modal、Toast、全局 loading、主题/语言切换、安装入口
-│   ├── composables/            # 主题、Toast、时间、表单、API 错误文案、安装引导
+│   ├── composables/            # 主题、Toast、时间、表单、API 错误文案、安装引导、URL 列表状态
 │   ├── config/env.ts           # 运行时环境变量校验
 │   ├── constants/task.ts       # 状态/优先级展示元数据
 │   ├── data/                   # 本地示例任务
@@ -256,6 +257,7 @@ pnpm dev
 pnpm dev:proxy          # 同源代理到真实后端（.env.proxy）
 pnpm build
 pnpm preview
+pnpm verify             # 本地收尾：docs → format → lint → type-check → unit → build
 pnpm check:components   # 纯转发组件检查（已并入 pnpm lint）
 bash deploy/build.sh    # 可复现发布构建
 bash deploy/build.sh --build-only  # 跳过类型检查（CI 已单独执行）
@@ -311,15 +313,17 @@ pnpm test:e2e
 - 任何离开 SPA 的第三方跳转（OAuth 授权、支付收银台）地址必须由接口返回后再 `location.assign`：直接拼 URL 的跳转带不上鉴权头与客户端标识头，多租户后端会直接拒绝。
 
 ```ts
-import { authApi, taskApi } from '@/api'
+import { authApi } from '@/api/auth'
+import { taskRepository } from '@/api/tasks'
 
 const session = await authApi.login({
   email: 'demo@orbit.app',
   password: 'OrbitDemo123!',
 })
 
-const tasks = await taskApi.list()
-const created = await taskApi.create({
+// 任务切片经 Repository 取数；默认绑本地适配器，接后端只改 api/tasks.ts 的初始化。
+const { rows: tasks } = await taskRepository.list()
+const created = await taskRepository.create({
   title: 'Ship the API integration',
   description: 'Wire the task store to the backend.',
   status: 'todo',
@@ -350,7 +354,7 @@ export default defineConfig({
 
 ### 约定的接口
 
-当前 `src/api/auth.ts` 与 `src/api/tasks.ts` 假设后端直接返回与 Zod Schema 一致的 JSON：
+当前 `src/api/auth.ts` 假设后端直接返回与 Zod Schema 一致的 JSON；任务切片经 `Repository` 适配器取数，默认绑定本地存储，接后端时把适配器换成 `restRepository` 即可：
 
 | 方法     | 路径             | 响应                 |
 | -------- | ---------------- | -------------------- |
@@ -366,7 +370,7 @@ export default defineConfig({
 | `DELETE` | `/tasks/:id`     | `204 No Content`     |
 | `GET`    | `/health`        | `{ "status": "ok" }` |
 
-如果后端使用 `{ code, data, message }` 包裹，在 `src/api/http.ts` 的响应拦截器中统一解包，并保留 `ApiError` 的错误码映射。当前任务 Store 仍是本地优先实现；把它接到后端时，只需替换 `src/stores/tasks.ts` 中的持久化读写，不必改动视图层。
+如果后端使用 `{ code, data, message }` 包裹，用 `src/api/envelope.ts` 在 API 模块内统一解包，并保留 `ApiError` 的错误码映射。任务切片接后端时只改 `src/api/tasks.ts` 里 `taskRepository` 的初始化（`localRepository` → `restRepository`），Store 与视图不动；契约与迁移步骤见 [数据适配器](./docs/data-adapters.md)。
 
 ### 账号鉴权
 
@@ -408,8 +412,8 @@ export default defineConfig({
 
 ### 2. 状态与持久化分层
 
-- Pinia 保存唯一任务与认证状态，组件不直接操作 `localStorage`。
-- `src/stores/tasks.ts` 负责读取、校验、持久化、导入导出与领域计算（统计、排序、周趋势）。
+- Pinia 保存唯一任务与认证状态；组件与 Store 都不直接操作 `localStorage`。
+- `src/stores/tasks.ts` 负责状态、派生与领域计算（统计、排序、周趋势），读写经 `src/api/tasks.ts` 的 `taskRepository`。
 - `src/stores/auth.ts` 负责会话恢复、登录/注册/退出、资料与密码；账号资料不再写入本地 profile Store。
 - 主题状态通过 VueUse `createGlobalState` 提供全局单例，保证设置页切换主题时顶栏图标与页面同步更新。
 - 存储键带版本号：`orbit.tasks.v1`、`orbit.access-token.v1`、`orbit.theme.v1`、`orbit.locale.v1`。

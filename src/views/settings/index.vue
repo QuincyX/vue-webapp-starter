@@ -274,7 +274,7 @@ async function importTasks(event: Event): Promise<void> {
 
   try {
     const payload: unknown = JSON.parse(await file.text())
-    const count = taskStore.importTasks(payload)
+    const count = await taskStore.importTasks(payload)
     toast({
       title: t('settings.data.importSuccess'),
       description: t('settings.data.importSuccessDescription', { count }),
@@ -291,12 +291,12 @@ async function importTasks(event: Event): Promise<void> {
   }
 }
 
-function runConfirmedAction(): void {
+async function runConfirmedAction(): Promise<void> {
   if (confirmAction.value === 'clear') {
-    taskStore.clearTasks()
+    await taskStore.clearTasks()
     toast({ title: t('settings.data.cleared'), variant: 'success' })
   } else if (confirmAction.value === 'reset') {
-    taskStore.resetDemoData()
+    await taskStore.resetDemoData()
     toast({ title: t('settings.data.resetDone'), variant: 'success' })
   }
 
